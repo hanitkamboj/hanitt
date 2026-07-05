@@ -1,19 +1,16 @@
 {
-  "name": "lyricforge",
   "version": 2,
-  "public": true,
-  "buildCommand": null,
   "outputDirectory": "lyric-video-generator",
   "installCommand": "npm install",
   "functions": {
     "api/**/*.js": {
       "memory": 512,
-      "maxDuration": 30,
-      "runtime": "nodejs@20.x"
+      "maxDuration": 30
     }
   },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/lyric-video-generator/$1" }
   ],
   "headers": [
@@ -44,8 +41,5 @@
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
     }
-  ],
-  "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/lyric-video-generator/$1" }
   ]
 }
