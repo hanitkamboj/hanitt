@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LyricForge — Advanced Lyric Video Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ============ NAVBAR ============ -->
+<nav class="navbar">
+    <div class="nav-brand">
+        <i class="fas fa-music"></i>
+        <span>LyricForge</span>
+    </div>
+    <div class="nav-links">
+        <a href="index.html" class="active"><i class="fas fa-plus-circle"></i> Create</a>
+        <a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a href="#" id="settingsBtn"><i class="fas fa-cog"></i> Settings</a>
+    </div>
+    <div class="nav-user" id="navUser">
+        <span class="connection-status" id="connStatus"><i class="fas fa-circle"></i> Disconnected</span>
+    </div>
+</nav>
+
+<!-- ============ MAIN CONTAINER ============ -->
+<main class="main-container">
+
+    <!-- ===== STEP 1: UPLOAD ===== -->
+    <section id="stepUpload" class="step active">
+        <div class="step-header">
+            <span class="step-number">1</span>
+            <h2>Upload Your Media</h2>
+            <p>Provide audio, lyrics, and a background image to generate your video.</p>
+        </div>
+
+        <div class="upload-grid">
+            <!-- Audio Upload -->
+            <div class="upload-card" id="audioCard">
+                <div class="upload-icon"><i class="fas fa-headphones"></i></div>
+                <h3>Audio File</h3>
+                <p class="upload-hint">MP3, WAV, M4A, FLAC</p>
+                <div class="file-drop" id="audioDrop">
+                    <input type="file" id="audioInput" accept="audio/*" hidden>
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Drop audio here or click to browse</span>
+                </div>
+                <div class="file-preview" id="audioPreview" hidden>
+                    <i class="fas fa-file-audio"></i>
+                    <span class="file-name"></span>
+                    <button class="btn-remove" data-target="audio"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <!-- Lyrics Upload -->
+            <div class="upload-card" id="lyricsCard">
+                <div class="upload-icon"><i class="fas fa-align-left"></i></div>
+                <h3>Lyrics File</h3>
+                <p class="upload-hint">LRC, SRT, ASS / or auto-fetch</p>
+                <div class="file-drop" id="lyricsDrop">
+                    <input type="file" id="lyricsInput" accept=".lrc,.srt,.ass" hidden>
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Drop lyrics here or click to browse</span>
+                </div>
+                <div class="file-preview" id="lyricsPreview" hidden>
+                    <i class="fas fa-file-alt"></i>
+                    <span class="file-name"></span>
+                    <button class="btn-remove" data-target="lyrics"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="fetch-lyrics" id="fetchLyricsSection">
+                    <div class="divider"><span>OR</span></div>
+                    <div class="fetch-input">
+                        <input type="text" id="songQuery" placeholder="Search song to auto-fetch lyrics...">
+                        <button id="fetchLyricsBtn" class="btn-small"><i class="fas fa-search"></i></button>
+                    </div>
+                    <div class="fetch-results" id="fetchResults"></div>
+                </div>
+            </div>
+
+            <!-- Background Upload -->
+            <div class="upload-card" id="bgCard">
+                <div class="upload-icon"><i class="fas fa-image"></i></div>
+                <h3>Background Image</h3>
+                <p class="upload-hint">JPG, PNG — 1920x1080 recommended</p>
+                <div class="file-drop" id="bgDrop">
+                    <input type="file" id="bgInput" accept="image/*" hidden>
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Drop image here or click to browse</span>
+                </div>
+                <div class="file-preview" id="bgPreview" hidden>
+                    <img id="bgThumb" alt="">
+                    <span class="file-name"></span>
+                    <button class="btn-remove" data-target="bg"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-actions">
+            <button class="btn btn-primary" id="toStep2" disabled>
+                Continue to Edit <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+    </section>
+
+    <!-- ===== STEP 2: EDITOR ===== -->
+    <section id="stepEditor" class="step">
+        <div class="step-header">
+            <span class="step-number">2</span>
+            <h2>Edit & Preview</h2>
+            <p>Fine-tune your lyric video before rendering.</p>
+        </div>
+
+        <div class="editor-layout">
+            <!-- Preview -->
+            <div class="preview-panel">
+                <div class="preview-container">
+                    <canvas id="previewCanvas" width="960" height="540"></canvas>
+                    <div class="preview-overlay" id="previewOverlay">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
+                <div class="preview-controls">
+                    <button id="playBtn" class="btn-icon"><i class="fas fa-play"></i></button>
+                    <div class="timeline" id="timeline">
+                        <input type="range" id="seekBar" min="0" max="100" value="0">
+                        <div class="timeline-info">
+                            <span id="currentTime">0:00</span>
+                            <span id="totalTime">0:00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor Panel -->
+            <div class="editor-panel">
+                <div class="editor-tabs">
+                    <button class="tab active" data-tab="lyrics">Lyrics</button>
+                    <button class="tab" data-tab="style">Style</button>
+                    <button class="tab" data-tab="metadata">Metadata</button>
+                </div>
+
+                <!-- Lyrics Tab -->
+                <div class="tab-content active" id="tabLyrics">
+                    <div class="editor-section">
+                        <h4><i class="fas fa-list"></i> Lyric Lines</h4>
+                        <div class="lyric-list" id="lyricList">
+                            <div class="lyric-list-empty">No lyrics loaded. Upload a file or search above.</div>
+                        </div>
+                        <div class="editor-actions">
+                            <button id="syncLyricsBtn" class="btn-small"><i class="fas fa-sync"></i> Auto-Sync</button>
+                            <button id="resetLyricsBtn" class="btn-small btn-danger"><i class="fas fa-undo"></i> Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Style Tab -->
+                <div class="tab-content" id="tabStyle">
+                    <div class="editor-section">
+                        <h4><i class="fas fa-palette"></i> Text Style</h4>
+                        <div class="style-grid">
+                            <div class="style-item">
+                                <label>Font</label>
+                                <select id="fontFamily">
+                                    <option value="Amatic SC">Amatic SC</option>
+                                    <option value="Inter">Inter</option>
+                                    <option value="Georgia">Georgia</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                            </div>
+                            <div class="style-item">
+                                <label>Font Size</label>
+                                <input type="range" id="fontSize" min="4" max="12" value="8" step="0.5">
+                                <span class="range-val" id="fontSizeVal">8vw</span>
+                            </div>
+                            <div class="style-item">
+                                <label>Text Color</label>
+                                <input type="color" id="textColor" value="#ffffff">
+                            </div>
+                            <div class="style-item">
+                                <label>Shadow</label>
+                                <input type="range" id="shadowIntensity" min="0" max="40" value="15">
+                                <span class="range-val" id="shadowVal">15px</span>
+                            </div>
+                            <div class="style-item">
+                                <label>Animation Speed</label>
+                                <input type="range" id="animSpeed" min="5" max="20" value="10" step="0.5">
+                                <span class="range-val" id="animSpeedVal">10s</span>
+                            </div>
+                            <div class="style-item">
+                                <label>Drift Amount</label>
+                                <input type="range" id="driftAmount" min="5" max="40" value="15">
+                                <span class="range-val" id="driftVal">15px</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-section">
+                        <h4><i class="fas fa-image"></i> Background</h4>
+                        <div class="style-grid">
+                            <div class="style-item">
+                                <label>Overlay Color</label>
+                                <input type="color" id="overlayColor" value="#6c11c9">
+                            </div>
+                            <div class="style-item">
+                                <label>Overlay Opacity</label>
+                                <input type="range" id="overlayOpacity" min="0" max="1" value="0.3" step="0.05">
+                                <span class="range-val" id="overlayOpacityVal">0.3</span>
+                            </div>
+                            <div class="style-item">
+                                <label>Blur</label>
+                                <input type="range" id="bgBlur" min="0" max="20" value="5">
+                                <span class="range-val" id="bgBlurVal">5px</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metadata Tab -->
+                <div class="tab-content" id="tabMetadata">
+                    <div class="editor-section">
+                        <h4><i class="fas fa-tag"></i> Video Info</h4>
+                        <div class="meta-form">
+                            <div class="form-group">
+                                <label>Artist Name *</label>
+                                <input type="text" id="artistName" placeholder="e.g. Taylor Swift" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Song Name *</label>
+                                <input type="text" id="songName" placeholder="e.g. Enchanted" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Version <span class="optional">Optional</span></label>
+                                <input type="text" id="versionName" placeholder="e.g. Official Lyric Video">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="editor-section">
+                        <h4><i class="fas fa-robot"></i> AI Suggestions</h4>
+                        <div class="ai-suggestions" id="aiSuggestions">
+                            <button id="aiSuggestBtn" class="btn-small btn-ai">
+                                <i class="fas fa-magic"></i> Generate Suggestions
+                            </button>
+                            <div class="suggestion-list" id="suggestionList"></div>
+                        </div>
+                    </div>
+
+                    <div class="editor-section">
+                        <h4><i class="fas fa-music"></i> Next Song Suggestion</h4>
+                        <div class="next-song" id="nextSongSection">
+                            <button id="nextSongBtn" class="btn-small btn-ai">
+                                <i class="fas fa-forward"></i> Suggest Next Song
+                            </button>
+                            <div id="nextSongResult" class="next-song-result"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-actions">
+            <button class="btn btn-secondary" id="toStep1"><i class="fas fa-arrow-left"></i> Back</button>
+            <button class="btn btn-primary" id="renderBtn">
+                <i class="fas fa-video"></i> Render Video (1080p 60fps)
+            </button>
+        </div>
+    </section>
+
+    <!-- ===== STEP 3: RENDER / EXPORT ===== -->
+    <section id="stepRender" class="step">
+        <div class="step-header">
+            <span class="step-number">3</span>
+            <h2>Render & Export</h2>
+            <p>Your video is being generated with smooth animations at 1080p 60fps.</p>
+        </div>
+
+        <div class="render-panel">
+            <div class="render-preview">
+                <canvas id="renderCanvas" width="1920" height="1080"></canvas>
+            </div>
+
+            <div class="render-progress">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="renderProgress" style="width: 0%"></div>
+                </div>
+                <div class="progress-info">
+                    <span id="renderStatus">Preparing...</span>
+                    <span id="renderPercent">0%</span>
+                </div>
+                <div class="progress-details">
+                    <span id="renderFrame">Frame: 0</span>
+                    <span id="renderTime">Time: 0:00</span>
+                    <span id="renderFps">FPS: 60</span>
+                </div>
+            </div>
+
+            <div class="render-actions" id="renderActions" hidden>
+                <button id="downloadBtn" class="btn btn-success">
+                    <i class="fas fa-download"></i> Download Video
+                </button>
+                <button id="downloadThumbBtn" class="btn btn-secondary">
+                    <i class="fas fa-image"></i> Download Thumbnail
+                </button>
+                <button id="uploadYTBtn" class="btn btn-yt">
+                    <i class="fab fa-youtube"></i> Upload to YouTube
+                </button>
+                <button id="uploadDriveBtn" class="btn btn-drive">
+                    <i class="fab fa-google-drive"></i> Upload to Drive
+                </button>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div class="modal" id="settingsModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-cog"></i> Settings</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-section">
+                <h4>Supabase Configuration</h4>
+                <div class="form-group">
+                    <label>Supabase URL</label>
+                    <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
+                </div>
+                <div class="form-group">
+                    <label>Supabase Anon Key</label>
+                    <input type="password" id="supabaseKey" placeholder="your-anon-key">
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>DeepSeek AI API</h4>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="deepseekKey" placeholder="sk-...">
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>YouTube Upload</h4>
+                <div class="form-group">
+                    <label>YouTube API Key</label>
+                    <input type="password" id="ytApiKey" placeholder="AIza...">
+                </div>
+                <div class="form-group">
+                    <label>Client ID</label>
+                    <input type="text" id="ytClientId" placeholder="...apps.googleusercontent.com">
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>Google Drive</h4>
+                <div class="form-group">
+                    <label>Drive Folder ID <span class="optional">Optional</span></label>
+                    <input type="text" id="driveFolderId" placeholder="folder-id">
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>Backend Server</h4>
+                <div class="form-group">
+                    <label>Server URL</label>
+                    <input type="text" id="serverUrl" placeholder="http://localhost:3000">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-primary" id="saveSettings">Save Settings</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ YOUTUBE UPLOAD MODAL ============ -->
+<div class="modal" id="ytUploadModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fab fa-youtube"></i> Upload to YouTube</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="ytTitle" placeholder="Artist - Song (Official Lyric Video)">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="ytDescription" rows="6" placeholder="Video description with credits..."></textarea>
+                <button id="generateDescBtn" class="btn-small btn-ai"><i class="fas fa-magic"></i> Generate with AI</button>
+            </div>
+            <div class="form-group">
+                <label>Tags <span class="optional">Comma separated</span></label>
+                <input type="text" id="ytTags" placeholder="lyric video, official, music">
+            </div>
+            <div class="youtube-extra">
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="ytCategory">
+                        <option value="10">Music</option>
+                        <option value="22">People & Blogs</option>
+                        <option value="24">Entertainment</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Visibility</label>
+                    <select id="ytVisibility">
+                        <option value="public">Public</option>
+                        <option value="unlisted">Unlisted</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-yt" id="confirmYtUpload"><i class="fab fa-youtube"></i> Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ============ SCRIPTS ============ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg.js/4.4.0/ffmpeg.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/lyrics-parser.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/api.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

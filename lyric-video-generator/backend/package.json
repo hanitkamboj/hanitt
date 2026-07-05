@@ -1,0 +1,22 @@
+{
+    "name": "lyricforge-backend",
+    "version": "1.0.0",
+    "description": "LyricForge backend API server for YouTube, Drive, and AI integration",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node --watch server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "cors": "^2.8.5",
+        "multer": "^1.4.5-lts.1",
+        "dotenv": "^16.3.1",
+        "googleapis": "^128.0.0",
+        "@supabase/supabase-js": "^2.39.0",
+        "openai": "^4.20.0",
+        "sharp": "^0.33.2",
+        "fluent-ffmpeg": "^2.1.2",
+        "uuid": "^9.0.0"
+    }
+}

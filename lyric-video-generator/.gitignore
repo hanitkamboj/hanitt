@@ -1,0 +1,19 @@
+# Credentials and secrets
+.env
+backend/.env
+js/config.js
+
+# Uploads and generated files
+backend/uploads/
+*.mp4
+*.webm
+*.jpg
+*.jpeg
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
