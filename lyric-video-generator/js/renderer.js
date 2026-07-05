@@ -33,6 +33,7 @@ class VideoRenderer {
             fadeInDuration: 1.5,
             fadeOutDuration: 1.5,
             maxTextWidth: 85,
+            audioOffset: 0,
             ...config
         };
         this.canvas.width = 1920;
@@ -78,7 +79,7 @@ class VideoRenderer {
         ctx.clearRect(0, 0, w, h);
         this.drawBackground(ctx, w, h);
         this.drawOverlay(ctx, w, h);
-        this.drawLyrics(ctx, w, h, time);
+        this.drawLyrics(ctx, w, h, time + (this.config.audioOffset || 0));
     }
 
     drawBackground(ctx, w, h) {

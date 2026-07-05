@@ -109,6 +109,62 @@ class LyricForgeEditor {
                 },
                 metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
                 created: '2025-01-06T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-yt-desc',
+                name: 'SEO Description',
+                type: 'youtube',
+                config: {
+                    titleTemplate: '{artist} - {song} (Official Lyric Video)',
+                    descriptionTemplate: '{artist} - {song} (Official Lyric Video)\n\n🎵 Listen to more from {artist}:\n\n📌 Lyrics:\n{lyrics}\n\n---\n🔔 Subscribe for more lyric videos!\n© {year} {artist}. All rights reserved.',
+                    tags: 'lyric video, official lyric video, music, lyrics, {artist}, {song}',
+                    category: '10',
+                    visibility: 'public'
+                },
+                metadata: {},
+                created: '2025-01-07T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-project-pop',
+                name: 'Pop Song Package',
+                type: 'full',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 7, textColor: '#ffffff',
+                    shadowIntensity: 18, animSpeed: 11, driftAmount: 18,
+                    fadeInDuration: 1.2, fadeOutDuration: 1.5, maxTextWidth: 85,
+                    overlayColor: '#7c3aed', overlayOpacity: 0.3, bgBlur: 5,
+                    audioOffset: 0
+                },
+                metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
+                created: '2025-01-08T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-project-rap',
+                name: 'Hip-Hop Package',
+                type: 'full',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 8, textColor: '#fbbf24',
+                    shadowIntensity: 25, animSpeed: 14, driftAmount: 22,
+                    fadeInDuration: 0.8, fadeOutDuration: 1, maxTextWidth: 90,
+                    overlayColor: '#1e1b4b', overlayOpacity: 0.45, bgBlur: 3,
+                    audioOffset: 0
+                },
+                metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
+                created: '2025-01-09T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-project-ballad',
+                name: 'Ballad Package',
+                type: 'full',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 6, textColor: '#f1f5f9',
+                    shadowIntensity: 20, animSpeed: 8, driftAmount: 12,
+                    fadeInDuration: 2.5, fadeOutDuration: 2.5, maxTextWidth: 80,
+                    overlayColor: '#0f172a', overlayOpacity: 0.5, bgBlur: 8,
+                    audioOffset: 0
+                },
+                metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
+                created: '2025-01-10T00:00:00.000Z', premade: true
             }
         ];
     }
@@ -366,6 +422,7 @@ class LyricForgeEditor {
             fadeInDuration: parseFloat(document.getElementById('fadeInDuration')?.value || '1.5'),
             fadeOutDuration: parseFloat(document.getElementById('fadeOutDuration')?.value || '1.5'),
             maxTextWidth: parseInt(document.getElementById('maxTextWidth')?.value || '85'),
+            audioOffset: parseFloat(document.getElementById('audioOffset')?.value || '0'),
             overlayColor: document.getElementById('overlayColor')?.value || '#6c11c9',
             overlayOpacity: parseFloat(document.getElementById('overlayOpacity')?.value || '0.3'),
             bgBlur: parseInt(document.getElementById('bgBlur')?.value || '5'),
@@ -376,8 +433,8 @@ class LyricForgeEditor {
     }
 
     setupStyleControls() {
-        const rangeIds = ['fontSize', 'shadowIntensity', 'animSpeed', 'driftAmount', 'fadeInDuration', 'fadeOutDuration', 'maxTextWidth', 'overlayOpacity', 'bgBlur'];
-        const suffixes = { fontSize: '', shadowIntensity: 'px', animSpeed: 's', driftAmount: 'px', fadeInDuration: 's', fadeOutDuration: 's', maxTextWidth: '%', overlayOpacity: '', bgBlur: 'px' };
+        const rangeIds = ['fontSize', 'shadowIntensity', 'animSpeed', 'driftAmount', 'fadeInDuration', 'fadeOutDuration', 'maxTextWidth', 'audioOffset', 'overlayOpacity', 'bgBlur'];
+        const suffixes = { fontSize: '', shadowIntensity: 'px', animSpeed: 's', driftAmount: 'px', fadeInDuration: 's', fadeOutDuration: 's', maxTextWidth: '%', audioOffset: 's', overlayOpacity: '', bgBlur: 'px' };
         rangeIds.forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -431,8 +488,17 @@ class LyricForgeEditor {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        const tabContent = document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1));
+        const tabName = tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1);
+        const tabContent = document.getElementById('tab' + tabName);
         if (tabContent) tabContent.classList.add('active');
+        if (tab.dataset.tab === 'templates') {
+            const activeT = document.querySelector('.tmpl-tab.active');
+            this.renderTemplates(activeT ? activeT.dataset.ttype : 'video');
+        }
+        if (tab.dataset.tab === 'chat') {
+            const msgs = document.getElementById('chatMessages');
+            if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        }
     }
 
     /* ---- Navigation ---- */
@@ -671,26 +737,26 @@ class LyricForgeEditor {
         this.isChatProcessing = true;
 
         const thinkingId = this.addThinkingMessage();
-        const msgEl = document.getElementById(thinkingId);
 
         try {
             const ctx = this.buildChatContext();
-            this.chatHistory.push({ role: 'user', content: text });
+            const contextMsg = `CURRENT EDITOR STATE:\n${JSON.stringify(ctx, null, 2)}\n\nUSER MESSAGE: ${text}`;
+            this.chatHistory.push({ role: 'user', content: contextMsg });
 
-            const result = await this.ai.chat(this.chatHistory.slice(-10), { temperature: 0.7, maxTokens: 2048 });
+            const result = await this.ai.chat(this.chatHistory.slice(-8), { temperature: 0.7, maxTokens: 2048 });
 
             this.chatHistory.push({ role: 'assistant', content: result });
+            this.chatHistory = this.chatHistory.slice(-20);
 
             const thinkingMsg = document.getElementById(thinkingId);
             if (thinkingMsg) thinkingMsg.remove();
 
             this.addChatMessage('ai', result);
-
             this.processAIResponse(result);
         } catch (e) {
             const thinkingMsg = document.getElementById(thinkingId);
             if (thinkingMsg) thinkingMsg.remove();
-            this.addChatMessage('ai', `Sorry, I encountered an error: ${e.message}`);
+            this.addChatMessage('ai', `Error: ${e.message}. Try again or check your API key in Settings.`);
         }
 
         this.isChatProcessing = false;
@@ -700,21 +766,34 @@ class LyricForgeEditor {
         const config = this.getStyleFromUI();
         const lyrics = this.lyrics.map(l => `[${LyricsParser.formatTime(l.time)}] ${l.text}`).join('\n');
         return {
-            artist: config.artistName,
-            song: config.songName,
-            version: config.versionName,
-            fontFamily: config.fontFamily,
-            fontSize: config.fontSize,
-            textColor: config.textColor,
-            drift: config.driftAmount,
-            speed: config.animSpeed,
-            fadeIn: config.fadeInDuration,
-            fadeOut: config.fadeOutDuration,
-            overlayColor: config.overlayColor,
-            hasAudio: !!this.audioFile,
-            hasBg: !!this.bgImage,
-            lyricsCount: this.lyrics.length,
-            lyricsPreview: lyrics.substring(0, 500)
+            state: 'editor',
+            artist: config.artistName || '(not set)',
+            song: config.songName || '(not set)',
+            version: config.versionName || '(not set)',
+            style: {
+                fontFamily: config.fontFamily,
+                fontSize: config.fontSize,
+                textColor: config.textColor,
+                shadowIntensity: config.shadowIntensity,
+                animSpeed: config.animSpeed + 's',
+                driftAmount: config.driftAmount + 'px',
+                fadeInDuration: config.fadeInDuration + 's',
+                fadeOutDuration: config.fadeOutDuration + 's',
+                maxTextWidth: config.maxTextWidth + '%',
+                overlayColor: config.overlayColor,
+                overlayOpacity: config.overlayOpacity,
+                bgBlur: config.bgBlur + 'px'
+            },
+            media: {
+                hasAudio: !!this.audioFile,
+                hasBg: !!this.bgImage,
+                audioDuration: this.audioDuration ? this.api.formatDuration(this.audioDuration) : 'unknown'
+            },
+            lyrics: {
+                count: this.lyrics.length,
+                preview: (lyrics || 'no lyrics').substring(0, 300)
+            },
+            templates: this.templates.length + ' saved'
         };
     }
 
@@ -917,38 +996,60 @@ class LyricForgeEditor {
     applyTemplate(id) {
         const tmpl = this.templates.find(t => t.id === id);
         if (!tmpl) return;
-
         const c = tmpl.config;
-        document.getElementById('fontFamily').value = c.fontFamily || 'Amatic SC';
-        document.getElementById('fontSize').value = c.fontSize || 6;
-        document.getElementById('fontSizeVal').textContent = c.fontSize || 6;
-        document.getElementById('textColor').value = c.textColor || '#ffffff';
-        document.getElementById('shadowIntensity').value = c.shadowIntensity || 15;
-        document.getElementById('shadowVal').textContent = (c.shadowIntensity || 15) + 'px';
-        document.getElementById('animSpeed').value = c.animSpeed || 10;
-        document.getElementById('animSpeedVal').textContent = (c.animSpeed || 10) + 's';
-        document.getElementById('driftAmount').value = c.driftAmount || 15;
-        document.getElementById('driftVal').textContent = (c.driftAmount || 15) + 'px';
-        document.getElementById('fadeInDuration').value = c.fadeInDuration || 1.5;
-        document.getElementById('fadeInDurationVal').textContent = (c.fadeInDuration || 1.5) + 's';
-        document.getElementById('fadeOutDuration').value = c.fadeOutDuration || 1.5;
-        document.getElementById('fadeOutDurationVal').textContent = (c.fadeOutDuration || 1.5) + 's';
-        document.getElementById('maxTextWidth').value = c.maxTextWidth || 85;
-        document.getElementById('maxTextWidthVal').textContent = (c.maxTextWidth || 85) + '%';
-        document.getElementById('overlayColor').value = c.overlayColor || '#6c11c9';
-        document.getElementById('overlayOpacity').value = c.overlayOpacity || 0.3;
-        document.getElementById('overlayOpacityVal').textContent = c.overlayOpacity || 0.3;
-        document.getElementById('bgBlur').value = c.bgBlur || 5;
-        document.getElementById('bgBlurVal').textContent = (c.bgBlur || 5) + 'px';
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }
+        };
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setVal('fontFamily', c.fontFamily || 'Amatic SC');
+        setVal('fontSize', c.fontSize || 6);
+        setText('fontSizeVal', c.fontSize || 6);
+        setVal('textColor', c.textColor || '#ffffff');
+        setVal('shadowIntensity', c.shadowIntensity || 15);
+        setText('shadowVal', (c.shadowIntensity || 15) + 'px');
+        setVal('animSpeed', c.animSpeed || 10);
+        setText('animSpeedVal', (c.animSpeed || 10) + 's');
+        setVal('driftAmount', c.driftAmount || 15);
+        setText('driftVal', (c.driftAmount || 15) + 'px');
+        setVal('fadeInDuration', c.fadeInDuration || 1.5);
+        setText('fadeInDurationVal', (c.fadeInDuration || 1.5) + 's');
+        setVal('fadeOutDuration', c.fadeOutDuration || 1.5);
+        setText('fadeOutDurationVal', (c.fadeOutDuration || 1.5) + 's');
+        setVal('maxTextWidth', c.maxTextWidth || 85);
+        setText('maxTextWidthVal', (c.maxTextWidth || 85) + '%');
+        setVal('audioOffset', c.audioOffset || 0);
+        setText('audioOffsetVal', (c.audioOffset || 0) + 's');
+        setVal('overlayColor', c.overlayColor || '#6c11c9');
+        setVal('overlayOpacity', c.overlayOpacity || 0.3);
+        setText('overlayOpacityVal', c.overlayOpacity || 0.3);
+        setVal('bgBlur', c.bgBlur || 5);
+        setText('bgBlurVal', (c.bgBlur || 5) + 'px');
 
         if (tmpl.metadata) {
-            if (tmpl.metadata.artistName) document.getElementById('artistName').value = tmpl.metadata.artistName;
-            if (tmpl.metadata.songName) document.getElementById('songName').value = tmpl.metadata.songName;
-            if (tmpl.metadata.versionName) document.getElementById('versionName').value = tmpl.metadata.versionName;
+            if (tmpl.metadata.artistName) setVal('artistName', tmpl.metadata.artistName);
+            if (tmpl.metadata.songName) setVal('songName', tmpl.metadata.songName);
+            if (tmpl.metadata.versionName) setVal('versionName', tmpl.metadata.versionName);
             this.updateMetadata();
         }
 
+        if (tmpl.type === 'youtube' && c.titleTemplate) {
+            document.getElementById('ytTitle').value = c.titleTemplate;
+            document.getElementById('ytDescription').value = c.descriptionTemplate || '';
+            document.getElementById('ytTags').value = c.tags || '';
+            document.getElementById('ytCategory').value = c.category || '10';
+            document.getElementById('ytVisibility').value = c.visibility || 'public';
+            this.showToast(`YouTube template "${tmpl.name}" applied!`, 'success');
+            return;
+        }
+
         this.updatePreview();
+        this.switchTab(document.querySelector('.tab[data-tab="style"]'));
         this.showToast(`Template "${tmpl.name}" applied!`, 'success');
     }
 
