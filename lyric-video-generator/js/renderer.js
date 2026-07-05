@@ -224,7 +224,8 @@ class VideoRenderer {
         this.canvas.height = height;
 
         const duration = this.audioDuration || 30;
-        this.totalFrames = Math.ceil(duration * fps);
+        const totalFrames = Math.ceil(duration * fps);
+        this.totalFrames = totalFrames;
         this.currentFrame = 0;
 
         const stream = this.canvas.captureStream(fps);
@@ -236,6 +237,8 @@ class VideoRenderer {
         } catch {
             mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
         }
+
+        const frameInterval = 1000 / fps;
 
         return new Promise((resolve, reject) => {
             mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
@@ -252,17 +255,22 @@ class VideoRenderer {
                 resolve(finalBlob);
             };
             mediaRecorder.onerror = (e) => { this.isRendering = false; reject(e); };
-            mediaRecorder.start(1000 / fps);
+            mediaRecorder.start(frameInterval);
 
-            const renderFrame = () => {
+            let prevTime = performance.now();
+            const renderFrame = (now) => {
                 if (!this.isRendering) { if (mediaRecorder.state === 'recording') mediaRecorder.stop(); return; }
-                this.drawFrame(this.currentFrame / fps);
-                this.currentFrame++;
-                if (this.onProgress) {
-                    const pct = Math.min(100, (this.currentFrame / this.totalFrames) * 100);
-                    this.onProgress({ percent: pct, frame: this.currentFrame, total: this.totalFrames, time: this.currentFrame / fps, fps });
+                const elapsed = now - prevTime;
+                if (elapsed >= frameInterval - 1) {
+                    prevTime = now - (elapsed % frameInterval);
+                    this.drawFrame(this.currentFrame / fps);
+                    this.currentFrame++;
+                    if (this.onProgress) {
+                        const pct = Math.min(100, (this.currentFrame / totalFrames) * 100);
+                        this.onProgress({ percent: pct, frame: this.currentFrame, total: totalFrames, time: this.currentFrame / fps, fps });
+                    }
                 }
-                if (this.currentFrame <= this.totalFrames) requestAnimationFrame(renderFrame);
+                if (this.currentFrame <= totalFrames) requestAnimationFrame(renderFrame);
                 else if (mediaRecorder.state === 'recording') mediaRecorder.stop();
             };
             requestAnimationFrame(renderFrame);
@@ -310,26 +318,29 @@ class VideoRenderer {
         cx.textAlign = 'center';
 
         const songText = version ? `${song} (${version})` : song;
-        let songSize = 140;
+        let songSize = 180;
         cx.font = `700 ${songSize}px ${ff}`;
-        if (cx.measureText(songText).width > 1600) {
-            songSize = 1600 / cx.measureText(songText).width * songSize;
+        let textW = cx.measureText(songText).width;
+        if (textW > 1700) {
+            songSize = 1700 / textW * songSize;
             cx.font = `700 ${songSize}px ${ff}`;
         }
         cx.shadowColor = 'rgba(0,0,0,0.8)';
         cx.shadowBlur = 20;
         cx.fillStyle = '#ffffff';
         cx.textBaseline = 'middle';
-        cx.fillText(songText, 960, 460);
+        cx.fillText(songText, 960, 440);
 
-        const artSize = Math.max(50, songSize * 0.45);
-        cx.font = `400 ${artSize}px ${ff}`;
-        cx.shadowColor = 'rgba(0,0,0,0.6)';
-        cx.shadowBlur = 12;
-        cx.globalAlpha = 0.85;
-        cx.fillStyle = '#f1f5f9';
-        cx.textBaseline = 'top';
-        cx.fillText(artist, 960, 520 + songSize * 0.15);
+        if (artist) {
+            const artSize = Math.max(60, Math.round(songSize * 0.45));
+            cx.font = `400 ${artSize}px ${ff}`;
+            cx.shadowColor = 'rgba(0,0,0,0.6)';
+            cx.shadowBlur = 12;
+            cx.globalAlpha = 0.9;
+            cx.fillStyle = '#e2e8f0';
+            cx.textBaseline = 'top';
+            cx.fillText(artist, 960, 520 + songSize * 0.2);
+        }
 
         cx.restore();
         return new Promise(resolve => c.toBlob(b => resolve(b), 'image/jpeg', 0.95));
