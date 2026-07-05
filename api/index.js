@@ -29,10 +29,10 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Mount backend routes
-const youtubeRoutes = require('../backend/routes/youtube');
-const driveRoutes = require('../backend/routes/drive');
-const aiRoutes = require('../backend/routes/ai');
+// Mount API routes
+const youtubeRoutes = require('./routes/youtube');
+const driveRoutes = require('./routes/drive');
+const aiRoutes = require('./routes/ai');
 
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/drive', driveRoutes);
