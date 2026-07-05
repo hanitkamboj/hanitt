@@ -27,6 +27,12 @@
         // Setup settings
         setupSettings();
 
+        // Initialize template UI
+        if (editor.renderTemplates) editor.renderTemplates('video');
+
+        // Check Google OAuth redirect
+        handleGoogleRedirect();
+
         console.log('✅ LyricForge ready!');
         editor.showToast('Welcome to LyricForge! Upload audio and lyrics to get started.', 'info');
     });
@@ -100,9 +106,33 @@
                 editor.api.serverUrl = localStorage.getItem('serverUrl') || 'http://localhost:3000';
             }
 
+            // Persist to localStorage (forever until cleared)
+            localStorage.setItem('lyricforge_settings_saved', Date.now().toString());
+
             document.getElementById('settingsModal')?.classList.remove('show');
-            editor?.showToast('Settings saved successfully!', 'success');
+            editor?.showToast('Settings saved & persisted permanently!', 'success');
         });
+    }
+
+    function handleGoogleRedirect() {
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            const params = new URLSearchParams(hash.substring(1));
+            const token = params.get('access_token');
+            if (token) {
+                localStorage.setItem('google_token', token);
+                const btn = document.getElementById('googleSignInBtn');
+                const outBtn = document.getElementById('googleSignOutBtn');
+                const info = document.getElementById('googleUserInfo');
+                if (btn) btn.hidden = true;
+                if (outBtn) outBtn.hidden = false;
+                if (info) { info.hidden = false;
+                    document.getElementById('googleName').textContent = 'Google Connected';
+                    document.getElementById('googleEmail').textContent = 'YouTube & Drive access granted'; }
+                editor?.showToast('Google account connected! You can now upload to YouTube & Drive.', 'success');
+                window.location.hash = '';
+            }
+        }
     }
 
     // Hidden AI system prompt — embedded for context awareness

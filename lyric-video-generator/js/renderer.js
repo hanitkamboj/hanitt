@@ -1,13 +1,7 @@
-/* ============================================
-   LyricForge — Video Renderer (1080p 60fps)
-   Uses Canvas + MediaRecorder + ffmpeg.wasm
-   ============================================ */
-
 class VideoRenderer {
     constructor() {
         this.canvas = null;
         this.ctx = null;
-        this.audioCtx = null;
         this.lyrics = [];
         this.bgImage = null;
         this.config = {};
@@ -17,9 +11,6 @@ class VideoRenderer {
         this.totalFrames = 0;
         this.animationId = null;
         this.audioDuration = 0;
-        this.audioBuffer = null;
-        this.audioSource = null;
-        this.startTime = 0;
         this.onProgress = null;
         this.onComplete = null;
         this.renderedBlob = null;
@@ -31,7 +22,7 @@ class VideoRenderer {
         this.ctx = canvasElement.getContext('2d', { alpha: false });
         this.config = {
             fontFamily: 'Amatic SC',
-            fontSize: 8,
+            fontSize: 6,
             textColor: '#ffffff',
             shadowIntensity: 15,
             animSpeed: 10,
@@ -39,9 +30,11 @@ class VideoRenderer {
             overlayColor: '#6c11c9',
             overlayOpacity: 0.3,
             bgBlur: 5,
+            fadeInDuration: 1.5,
+            fadeOutDuration: 1.5,
+            maxTextWidth: 85,
             ...config
         };
-
         this.canvas.width = 1920;
         this.canvas.height = 1080;
 
@@ -55,10 +48,9 @@ class VideoRenderer {
                 this.ffmpegFetchFile = fetchFile;
                 await this.ffmpeg.load();
             } catch (e) {
-                console.warn('ffmpeg.wasm not available, audio merging disabled:', e.message);
+                console.warn('ffmpeg.wasm not available:', e.message);
             }
         }
-
         return this;
     }
 
@@ -72,37 +64,18 @@ class VideoRenderer {
         return this;
     }
 
-    setBackground(image) {
-        this.bgImage = image;
-        return this;
-    }
+    setBackground(image) { this.bgImage = image; return this; }
+    setAudio(file) { this.audioFile = file; return this; }
+    setDuration(d) { this.audioDuration = d; return this; }
+    getStyleConfig() { return { ...this.config }; }
+    updateConfig(updates) { Object.assign(this.config, updates); }
 
-    setAudio(file) {
-        this.audioFile = file;
-        return this;
-    }
-
-    setDuration(duration) {
-        this.audioDuration = duration;
-        return this;
-    }
-
-    getStyleConfig() {
-        return { ...this.config };
-    }
-
-    updateConfig(updates) {
-        Object.assign(this.config, updates);
-    }
-
-    /* ---- DRAW A SINGLE FRAME ---- */
+    /* ---- DRAW FRAME ---- */
     drawFrame(time) {
         const ctx = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;
-
         ctx.clearRect(0, 0, w, h);
-
         this.drawBackground(ctx, w, h);
         this.drawOverlay(ctx, w, h);
         this.drawLyrics(ctx, w, h, time);
@@ -111,92 +84,84 @@ class VideoRenderer {
     drawBackground(ctx, w, h) {
         if (this.bgImage) {
             ctx.save();
-            const blur = this.config.bgBlur;
-            if (blur > 0) {
-                ctx.filter = `blur(${blur}px)`;
-            }
+            if (this.config.bgBlur > 0) ctx.filter = `blur(${this.config.bgBlur}px)`;
             ctx.drawImage(this.bgImage, 0, 0, w, h);
             ctx.restore();
         } else {
-            const grad = ctx.createLinearGradient(0, 0, 0, h);
-            grad.addColorStop(0, this.config.overlayColor || '#6c11c9');
-            grad.addColorStop(1, this.lightenColor(this.config.overlayColor || '#6c11c9', 40));
-            ctx.fillStyle = grad;
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, this.config.overlayColor || '#6c11c9');
+            g.addColorStop(1, this.lightenColor(this.config.overlayColor || '#6c11c9', 40));
+            ctx.fillStyle = g;
             ctx.fillRect(0, 0, w, h);
         }
     }
 
     drawOverlay(ctx, w, h) {
         if (!this.bgImage) return;
-        ctx.fillStyle = this.hexToRgba(
-            this.config.overlayColor || '#6c11c9',
-            this.config.overlayOpacity || 0.3
-        );
+        ctx.fillStyle = this.hexToRgba(this.config.overlayColor || '#6c11c9', this.config.overlayOpacity || 0.3);
         ctx.fillRect(0, 0, w, h);
     }
 
     drawLyrics(ctx, w, h, time) {
         const speed = this.config.animSpeed || 10;
         const drift = this.config.driftAmount || 15;
-
         let activeLyric = null;
         for (const l of this.lyrics) {
-            if (time >= l.time && time < l.endTime) {
-                activeLyric = l;
-                break;
-            }
+            if (time >= l.time && time < l.endTime) { activeLyric = l; break; }
         }
-
         if (!activeLyric) {
             const prev = this.lyrics.filter(l => l.endTime <= time).pop();
             if (prev) {
-                const fadeOutStart = prev.endTime - 1;
+                const fOut = this.config.fadeOutDuration || 1.5;
+                const fadeOutStart = prev.endTime - fOut;
                 if (time > fadeOutStart && time < prev.endTime) {
                     this.drawSingleLyric(ctx, w, h, prev, time, speed, drift);
                 }
             }
             return;
         }
-
         this.drawSingleLyric(ctx, w, h, activeLyric, time, speed, drift);
     }
 
     drawSingleLyric(ctx, w, h, lyric, time, speed, drift) {
         const elapsed = time - lyric.time;
         const duration = lyric.endTime - lyric.time;
-        const fadeInDuration = Math.min(1.5, duration * 0.25);
-        const fadeOutDuration = Math.min(1.5, duration * 0.25);
-        const fadeOutStart = lyric.endTime - fadeOutDuration;
+        const fadeIn = Math.min(this.config.fadeInDuration || 1.5, duration * 0.4);
+        const fadeOut = Math.min(this.config.fadeOutDuration || 1.5, duration * 0.4);
+        const fadeOutStart = lyric.endTime - fadeOut;
 
         let opacity = 1;
-        if (elapsed < fadeInDuration) {
-            opacity = elapsed / fadeInDuration;
-        } else if (time > fadeOutStart) {
-            opacity = Math.max(0, 1 - (time - fadeOutStart) / fadeOutDuration);
-        }
+        if (elapsed < fadeIn) opacity = elapsed / fadeIn;
+        else if (time > fadeOutStart) opacity = Math.max(0, 1 - (time - fadeOutStart) / fadeOut);
 
-        const cycleDuration = speed;
-        const phase = (elapsed % cycleDuration) / cycleDuration;
-
+        const cycle = speed;
+        const phase = (elapsed % cycle) / cycle;
         const xDrift = Math.sin(phase * Math.PI * 2) * drift;
         const yDrift = Math.sin((phase * Math.PI * 2) - Math.PI / 2) * (drift * 0.8);
 
-        const fontSize = (this.config.fontSize || 8) * (h / 1080) * 100;
+        const maxW = (w * (this.config.maxTextWidth || 85)) / 100;
+        let baseSize = (this.config.fontSize || 6) * (h / 1080) * 100;
+        const fontFamily = `"${this.config.fontFamily}", cursive`;
+
         ctx.save();
-        ctx.font = `700 ${fontSize}px "${this.config.fontFamily}", cursive`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        let fontSize = baseSize;
+        ctx.font = `700 ${fontSize}px ${fontFamily}`;
+        let textW = ctx.measureText(lyric.text).width;
+        if (textW > maxW) {
+            fontSize = baseSize * (maxW / textW);
+            ctx.font = `700 ${fontSize}px ${fontFamily}`;
+        }
+
         const shadowPx = this.config.shadowIntensity || 15;
-        ctx.shadowColor = `rgba(0, 0, 0, ${Math.min(0.8, shadowPx / 20)})`;
+        ctx.shadowColor = `rgba(0,0,0,${Math.min(0.8, shadowPx / 20)})`;
         ctx.shadowBlur = shadowPx;
-
         ctx.globalAlpha = opacity;
-
         ctx.fillStyle = this.config.textColor || '#ffffff';
         ctx.translate(w / 2 + xDrift, h / 2 + yDrift);
         ctx.fillText(lyric.text, 0, 0);
-
         ctx.restore();
     }
 
@@ -205,11 +170,9 @@ class VideoRenderer {
         if (this.isPreviewing) return;
         this.isPreviewing = true;
         this.audioElement = audioElement;
-
         const loop = () => {
             if (!this.isPreviewing) return;
-            const time = audioElement ? audioElement.currentTime : 0;
-            this.drawFrame(time);
+            this.drawFrame(audioElement ? audioElement.currentTime : 0);
             this.animationId = requestAnimationFrame(loop);
         };
         loop();
@@ -217,30 +180,17 @@ class VideoRenderer {
 
     stopPreview() {
         this.isPreviewing = false;
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-            this.animationId = null;
-        }
+        if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
     }
 
-    /* ---- RENDER (60fps) ---- */
+    /* ---- RENDER ---- */
     async render(options = {}) {
         if (this.isRendering) throw new Error('Already rendering');
-
-        const {
-            fps = 60,
-            width = 1920,
-            height = 1080,
-            bitrate = 20000000,
-            onProgress = null,
-            onComplete = null
-        } = options;
-
+        const { fps = 60, width = 1920, height = 1080, bitrate = 20000000, onProgress = null, onComplete = null } = options;
         this.isRendering = true;
         this.onProgress = onProgress;
         this.onComplete = onComplete;
         this.renderedBlob = null;
-
         this.canvas.width = width;
         this.canvas.height = height;
 
@@ -250,203 +200,135 @@ class VideoRenderer {
 
         const stream = this.canvas.captureStream(fps);
         const chunks = [];
-        let mediaRecorder;
-
         const mimeType = this.getSupportedMimeType();
-
+        let mediaRecorder;
         try {
-            mediaRecorder = new MediaRecorder(stream, {
-                mimeType,
-                videoBitsPerSecond: bitrate
-            });
-        } catch (e) {
-            mediaRecorder = new MediaRecorder(stream, {
-                videoBitsPerSecond: bitrate
-            });
+            mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
+        } catch {
+            mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
         }
 
         return new Promise((resolve, reject) => {
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) chunks.push(e.data);
-            };
-
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
             mediaRecorder.onstop = async () => {
                 this.isRendering = false;
                 const blob = new Blob(chunks, { type: 'video/webm' });
                 this.renderedBlob = blob;
-
                 let finalBlob = blob;
-
                 if (this.audioFile && this.ffmpeg && this.ffmpeg.isLoaded()) {
-                    try {
-                        finalBlob = await this.mergeAudioWithFFmpeg(blob, this.audioFile);
-                    } catch (e) {
-                        console.warn('Audio merge failed, returning video-only:', e);
-                    }
+                    try { finalBlob = await this.mergeAudioWithFFmpeg(blob, this.audioFile); }
+                    catch (e) { console.warn('Audio merge failed:', e); }
                 }
-
                 if (this.onComplete) this.onComplete(finalBlob);
                 resolve(finalBlob);
             };
-
-            mediaRecorder.onerror = (e) => {
-                this.isRendering = false;
-                reject(e);
-            };
-
+            mediaRecorder.onerror = (e) => { this.isRendering = false; reject(e); };
             mediaRecorder.start(1000 / fps);
 
-            const renderFrame = (timestamp) => {
-                if (!this.isRendering) {
-                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
-                    return;
-                }
-
-                const time = this.currentFrame / fps;
-                this.drawFrame(time);
-
+            const renderFrame = () => {
+                if (!this.isRendering) { if (mediaRecorder.state === 'recording') mediaRecorder.stop(); return; }
+                this.drawFrame(this.currentFrame / fps);
                 this.currentFrame++;
-
                 if (this.onProgress) {
                     const pct = Math.min(100, (this.currentFrame / this.totalFrames) * 100);
-                    this.onProgress({
-                        percent: pct,
-                        frame: this.currentFrame,
-                        total: this.totalFrames,
-                        time,
-                        fps
-                    });
+                    this.onProgress({ percent: pct, frame: this.currentFrame, total: this.totalFrames, time: this.currentFrame / fps, fps });
                 }
-
-                if (this.currentFrame <= this.totalFrames) {
-                    requestAnimationFrame(renderFrame);
-                } else {
-                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
-                }
+                if (this.currentFrame <= this.totalFrames) requestAnimationFrame(renderFrame);
+                else if (mediaRecorder.state === 'recording') mediaRecorder.stop();
             };
-
             requestAnimationFrame(renderFrame);
         });
     }
 
     async mergeAudioWithFFmpeg(videoBlob, audioFile) {
         if (!this.ffmpeg || !this.ffmpeg.isLoaded()) return videoBlob;
-
         try {
             this.ffmpeg.FS('writeFile', 'video.webm', await this.ffmpegFetchFile(videoBlob));
             this.ffmpeg.FS('writeFile', 'audio.mp3', await this.ffmpegFetchFile(audioFile));
-
             await this.ffmpeg.run(
-                '-i', 'video.webm',
-                '-i', 'audio.mp3',
-                '-c:v', 'libx264',
-                '-preset', 'medium',
-                '-b:v', '20M',
-                '-maxrate', '25M',
-                '-bufsize', '40M',
-                '-c:a', 'aac',
-                '-b:a', '192k',
-                '-shortest',
-                '-pix_fmt', 'yuv420p',
-                '-r', '60',
-                '-movflags', '+faststart',
-                'output.mp4'
+                '-i', 'video.webm', '-i', 'audio.mp3',
+                '-c:v', 'libx264', '-preset', 'medium',
+                '-b:v', '20M', '-maxrate', '25M', '-bufsize', '40M',
+                '-c:a', 'aac', '-b:a', '192k',
+                '-shortest', '-pix_fmt', 'yuv420p', '-r', '60',
+                '-movflags', '+faststart', 'output.mp4'
             );
-
             const data = this.ffmpeg.FS('readFile', 'output.mp4');
             this.ffmpeg.FS('unlink', 'video.webm');
             this.ffmpeg.FS('unlink', 'audio.mp3');
-
             return new Blob([data.buffer], { type: 'video/mp4' });
-        } catch (e) {
-            console.error('FFmpeg merge error:', e);
-            return videoBlob;
-        }
+        } catch (e) { console.error('FFmpeg error:', e); return videoBlob; }
     }
 
-    /* ---- THUMBNAIL ---- */
-    generateThumbnail(time = 2) {
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = 1920;
-        thumbCanvas.height = 1080;
-        const thumbCtx = thumbCanvas.getContext('2d', { alpha: false });
+    /* ---- THUMBNAIL (Song as H1, Artist as H2) ---- */
+    generateThumbnail() {
+        const c = document.createElement('canvas');
+        c.width = 1920; c.height = 1080;
+        const cx = c.getContext('2d', { alpha: false });
 
         const renderer = new VideoRenderer();
-        renderer.canvas = thumbCanvas;
-        renderer.ctx = thumbCtx;
+        renderer.canvas = c; renderer.ctx = cx;
         renderer.config = this.config;
         renderer.bgImage = this.bgImage;
-        renderer.lyrics = this.lyrics;
-        renderer.drawFrame(time);
+        renderer.drawFrame(0);
 
-        const metadata = {
-            artist: this.config.artistName || '',
-            song: this.config.songName || '',
-            version: this.config.versionName || ''
-        };
-        if (metadata.artist || metadata.song) {
-            const fontSize = 36;
-            thumbCtx.save();
-            thumbCtx.font = `700 ${fontSize}px "${this.config.fontFamily}", cursive`;
-            thumbCtx.textAlign = 'center';
-            thumbCtx.textBaseline = 'bottom';
+        const song = this.config.songName || 'Song Title';
+        const artist = this.config.artistName || 'Artist Name';
+        const version = this.config.versionName || '';
 
-            const creditText = metadata.version
-                ? `${metadata.artist} — ${metadata.song} • ${metadata.version}`
-                : `${metadata.artist} — ${metadata.song}`;
+        const ff = `"${this.config.fontFamily || 'Amatic SC'}", cursive`;
 
-            thumbCtx.shadowColor = 'rgba(0,0,0,0.8)';
-            thumbCtx.shadowBlur = 10;
-            thumbCtx.fillStyle = 'rgba(255,255,255,0.7)';
-            thumbCtx.font = `400 ${Math.floor(fontSize * 0.6)}px Inter, sans-serif`;
-            thumbCtx.fillText(creditText, 960, 1040);
-            thumbCtx.restore();
+        cx.save();
+        cx.textAlign = 'center';
+
+        // Song title - big, centered
+        const songText = version ? `${song} (${version})` : song;
+        let songSize = 140;
+        cx.font = `700 ${songSize}px ${ff}`;
+        if (cx.measureText(songText).width > 1600) {
+            songSize = 1600 / cx.measureText(songText).width * songSize;
+            cx.font = `700 ${songSize}px ${ff}`;
         }
+        cx.shadowColor = 'rgba(0,0,0,0.8)';
+        cx.shadowBlur = 20;
+        cx.fillStyle = '#ffffff';
+        cx.textBaseline = 'middle';
+        cx.fillText(songText, 960, 480);
 
-        return new Promise((resolve) => {
-            thumbCanvas.toBlob((blob) => {
-                resolve(blob);
-            }, 'image/jpeg', 0.95);
-        });
+        // Artist - smaller, below
+        const artSize = Math.max(50, songSize * 0.45);
+        cx.font = `400 ${artSize}px ${ff}`;
+        cx.shadowColor = 'rgba(0,0,0,0.6)';
+        cx.shadowBlur = 12;
+        cx.globalAlpha = 0.85;
+        cx.fillStyle = '#f1f5f9';
+        cx.fillText(artist, 960, 560 + songSize * 0.3);
+
+        cx.restore();
+
+        return new Promise(resolve => c.toBlob(b => resolve(b), 'image/jpeg', 0.95));
     }
 
     /* ---- HELPERS ---- */
     getSupportedMimeType() {
-        const types = [
-            'video/webm;codecs=vp9',
-            'video/webm;codecs=vp8',
-            'video/webm',
-            'video/mp4'
-        ];
-        for (const type of types) {
-            if (MediaRecorder.isTypeSupported(type)) return type;
-        }
+        const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+        for (const t of types) { if (MediaRecorder.isTypeSupported(t)) return t; }
         return 'video/webm';
     }
 
-    hexToRgba(hex, alpha) {
-        if (!hex) return `rgba(0,0,0,${alpha})`;
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r},${g},${b},${alpha})`;
+    hexToRgba(hex, a) {
+        if (!hex) return `rgba(0,0,0,${a})`;
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        return `rgba(${r},${g},${b},${a})`;
     }
 
-    lightenColor(hex, percent) {
+    lightenColor(hex, p) {
         if (!hex) return '#a238ff';
-        const num = parseInt(hex.slice(1), 16);
-        const amt = Math.round(2.55 * percent);
-        const R = Math.min(255, (num >> 16) + amt);
-        const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
-        const B = Math.min(255, (num & 0x0000FF) + amt);
-        return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
+        const n = parseInt(hex.slice(1),16), amt = Math.round(2.55*p);
+        const R = Math.min(255,(n>>16)+amt), G = Math.min(255,((n>>8)&0xFF)+amt), B = Math.min(255,(n&0xFF)+amt);
+        return `#${(0x1000000+R*0x10000+G*0x100+B).toString(16).slice(1)}`;
     }
 
-    cancelRender() {
-        this.isRendering = false;
-    }
+    cancelRender() { this.isRendering = false; }
 }
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = VideoRenderer;
-}
+if (typeof module !== 'undefined' && module.exports) module.exports = VideoRenderer;

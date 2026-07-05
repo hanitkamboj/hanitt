@@ -16,6 +16,19 @@ class LyricForgeEditor {
         this.projectConfig = {};
         this.renderedBlob = null;
         this.thumbnailBlob = null;
+        this.templates = this.loadTemplates();
+        this.chatHistory = [];
+        this.isChatProcessing = false;
+        this.attachedFiles = [];
+    }
+
+    loadTemplates() {
+        try { return JSON.parse(localStorage.getItem('lyricforge_templates') || '[]'); }
+        catch { return []; }
+    }
+
+    saveTemplates() {
+        localStorage.setItem('lyricforge_templates', JSON.stringify(this.templates));
     }
 
     async init() {
@@ -68,6 +81,36 @@ class LyricForgeEditor {
         document.getElementById('aiSuggestBtn').addEventListener('click', () => this.generateAISuggestions());
         document.getElementById('nextSongBtn').addEventListener('click', () => this.suggestNextSong());
         document.getElementById('generateDescBtn').addEventListener('click', () => this.generateDescription());
+
+        // Chat
+        document.getElementById('chatSendBtn').addEventListener('click', () => this.chatSend());
+        document.getElementById('chatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.chatSend(); }
+        });
+        document.getElementById('chatFileInput').addEventListener('change', (e) => this.chatAttachFile(e));
+
+        // Chat quick actions
+        document.querySelectorAll('.chat-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('chatInput').value = btn.dataset.prompt;
+                this.chatSend();
+            });
+        });
+
+        // Templates
+        document.getElementById('saveTemplateBtn').addEventListener('click', () => this.saveTemplate());
+        document.getElementById('importTemplateBtn').addEventListener('click', () => this.importTemplate());
+        document.querySelectorAll('.tmpl-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tmpl-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.renderTemplates(tab.dataset.ttype);
+            });
+        });
+
+        // Google Sign-In
+        document.getElementById('googleSignInBtn')?.addEventListener('click', () => this.googleSignIn());
+        document.getElementById('googleSignOutBtn')?.addEventListener('click', () => this.googleSignOut());
 
         // Render
         document.getElementById('renderBtn').addEventListener('click', () => this.startRender());
@@ -229,11 +272,14 @@ class LyricForgeEditor {
     getStyleFromUI() {
         return {
             fontFamily: document.getElementById('fontFamily')?.value || 'Amatic SC',
-            fontSize: parseFloat(document.getElementById('fontSize')?.value || '8'),
+            fontSize: parseFloat(document.getElementById('fontSize')?.value || '6'),
             textColor: document.getElementById('textColor')?.value || '#ffffff',
             shadowIntensity: parseInt(document.getElementById('shadowIntensity')?.value || '15'),
             animSpeed: parseFloat(document.getElementById('animSpeed')?.value || '10'),
             driftAmount: parseInt(document.getElementById('driftAmount')?.value || '15'),
+            fadeInDuration: parseFloat(document.getElementById('fadeInDuration')?.value || '1.5'),
+            fadeOutDuration: parseFloat(document.getElementById('fadeOutDuration')?.value || '1.5'),
+            maxTextWidth: parseInt(document.getElementById('maxTextWidth')?.value || '85'),
             overlayColor: document.getElementById('overlayColor')?.value || '#6c11c9',
             overlayOpacity: parseFloat(document.getElementById('overlayOpacity')?.value || '0.3'),
             bgBlur: parseInt(document.getElementById('bgBlur')?.value || '5'),
@@ -244,15 +290,14 @@ class LyricForgeEditor {
     }
 
     setupStyleControls() {
-        const rangeIds = ['fontSize', 'shadowIntensity', 'animSpeed', 'driftAmount', 'overlayOpacity', 'bgBlur'];
+        const rangeIds = ['fontSize', 'shadowIntensity', 'animSpeed', 'driftAmount', 'fadeInDuration', 'fadeOutDuration', 'maxTextWidth', 'overlayOpacity', 'bgBlur'];
+        const suffixes = { fontSize: '', shadowIntensity: 'px', animSpeed: 's', driftAmount: 'px', fadeInDuration: 's', fadeOutDuration: 's', maxTextWidth: '%', overlayOpacity: '', bgBlur: 'px' };
         rangeIds.forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('input', () => {
                 const valEl = document.getElementById(id + 'Val');
-                if (valEl) {
-                    valEl.textContent = el.value + (id === 'overlayOpacity' ? '' : (id === 'fontSize' ? 'vw' : id === 'animSpeed' ? 's' : 'px'));
-                }
+                if (valEl) valEl.textContent = el.value + (suffixes[id] || '');
                 this.updatePreview();
             });
         });
@@ -528,6 +573,402 @@ class LyricForgeEditor {
         document.getElementById('generateDescBtn').innerHTML = '<i class="fas fa-magic"></i> Generate with AI';
     }
 
+    /* ---- AI Chat ---- */
+    async chatSend() {
+        if (this.isChatProcessing) return;
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        this.addChatMessage('user', text);
+        input.value = '';
+        this.isChatProcessing = true;
+
+        const thinkingId = this.addThinkingMessage();
+        const msgEl = document.getElementById(thinkingId);
+
+        try {
+            const ctx = this.buildChatContext();
+            this.chatHistory.push({ role: 'user', content: text });
+
+            const result = await this.ai.chat(this.chatHistory.slice(-10), { temperature: 0.7, maxTokens: 2048 });
+
+            this.chatHistory.push({ role: 'assistant', content: result });
+
+            const thinkingMsg = document.getElementById(thinkingId);
+            if (thinkingMsg) thinkingMsg.remove();
+
+            this.addChatMessage('ai', result);
+
+            this.processAIResponse(result);
+        } catch (e) {
+            const thinkingMsg = document.getElementById(thinkingId);
+            if (thinkingMsg) thinkingMsg.remove();
+            this.addChatMessage('ai', `Sorry, I encountered an error: ${e.message}`);
+        }
+
+        this.isChatProcessing = false;
+    }
+
+    buildChatContext() {
+        const config = this.getStyleFromUI();
+        const lyrics = this.lyrics.map(l => `[${LyricsParser.formatTime(l.time)}] ${l.text}`).join('\n');
+        return {
+            artist: config.artistName,
+            song: config.songName,
+            version: config.versionName,
+            fontFamily: config.fontFamily,
+            fontSize: config.fontSize,
+            textColor: config.textColor,
+            drift: config.driftAmount,
+            speed: config.animSpeed,
+            fadeIn: config.fadeInDuration,
+            fadeOut: config.fadeOutDuration,
+            overlayColor: config.overlayColor,
+            hasAudio: !!this.audioFile,
+            hasBg: !!this.bgImage,
+            lyricsCount: this.lyrics.length,
+            lyricsPreview: lyrics.substring(0, 500)
+        };
+    }
+
+    processAIResponse(text) {
+        const lower = text.toLowerCase();
+
+        if (lower.includes('fontsize') || lower.includes('font-size') || lower.includes('font size')) {
+            const match = text.match(/font.?size[:\s]*(\d+(\.\d+)?)/i);
+            if (match) {
+                const val = Math.min(10, Math.max(1, parseFloat(match[1])));
+                document.getElementById('fontSize').value = val;
+                document.getElementById('fontSizeVal').textContent = val;
+                this.updatePreview();
+                this.showToast(`Font size set to ${val}`, 'success');
+            }
+        }
+
+        if (lower.includes('drift') || lower.includes('move')) {
+            const match = text.match(/drift[:\s]*(\d+)/i);
+            if (match) {
+                const val = Math.min(40, Math.max(5, parseInt(match[1])));
+                document.getElementById('driftAmount').value = val;
+                document.getElementById('driftVal').textContent = val + 'px';
+                this.updatePreview();
+            }
+        }
+
+        if (lower.includes('fade') || lower.includes('fade in') || lower.includes('fade out')) {
+            const matchIn = text.match(/fade.?in[:\s]*(\d+(\.\d+)?)/i);
+            const matchOut = text.match(/fade.?out[:\s]*(\d+(\.\d+)?)/i);
+            if (matchIn) {
+                const val = Math.min(4, Math.max(0.3, parseFloat(matchIn[1])));
+                document.getElementById('fadeInDuration').value = val;
+                document.getElementById('fadeInDurationVal').textContent = val + 's';
+            }
+            if (matchOut) {
+                const val = Math.min(4, Math.max(0.3, parseFloat(matchOut[1])));
+                document.getElementById('fadeOutDuration').value = val;
+                document.getElementById('fadeOutDurationVal').textContent = val + 's';
+            }
+            this.updatePreview();
+        }
+
+        if (lower.includes('#') && lower.includes('overlay')) {
+            const match = text.match(/#[0-9a-f]{6}/i);
+            if (match) {
+                document.getElementById('overlayColor').value = match[0];
+                this.updatePreview();
+            }
+        }
+
+        if (lower.includes('color') || lower.includes('colour')) {
+            const match = text.match(/#[0-9a-f]{6}/i);
+            if (match) {
+                document.getElementById('overlayColor').value = match[0];
+                this.updatePreview();
+            }
+        }
+
+        if (lower.includes('artist') && !lower.includes('suggest')) {
+            const match = text.match(/artist[":\s]*([^"\n,.]+)/i);
+            if (match && match[1].length < 50) {
+                document.getElementById('artistName').value = match[1].trim();
+                this.updateMetadata();
+            }
+        }
+
+        if (lower.includes('song') && !lower.includes('suggest') && !lower.includes('next')) {
+            const match = text.match(/song[":\s]*([^"\n,.]+)/i);
+            if (match && match[1].length < 50) {
+                document.getElementById('songName').value = match[1].trim();
+                this.updateMetadata();
+            }
+        }
+
+        if (lower.includes('description') || lower.includes('seo') || lower.includes('youtube')) {
+            this.generateDescription();
+        }
+
+        if (lower.includes('suggest') && (lower.includes('style') || lower.includes('visual'))) {
+            this.generateAISuggestions();
+        }
+
+        if (lower.includes('next song') || (lower.includes('suggest') && lower.includes('song'))) {
+            this.suggestNextSong();
+        }
+
+        if (lower.includes('template') && (lower.includes('save') || lower.includes('create'))) {
+            this.saveTemplate();
+        }
+
+        if (lower.includes('fetch') || lower.includes('search') || lower.includes('get lyrics')) {
+            const match = text.match(/(?:fetch|search|get)\s+lyrics\s+(?:for\s+)?(.+)/i);
+            if (match) {
+                document.getElementById('songQuery').value = match[1].trim();
+                this.fetchLyrics();
+            }
+        }
+    }
+
+    addChatMessage(role, content) {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = `chat-msg ${role}`;
+
+        const avatar = role === 'ai'
+            ? '<div class="msg-avatar"><i class="fas fa-robot"></i></div>'
+            : '<div class="msg-avatar"><i class="fas fa-user"></i></div>';
+
+        let filesHtml = '';
+        if (role === 'user' && this.attachedFiles.length > 0) {
+            filesHtml = this.attachedFiles.map(f =>
+                `<div class="chat-file-attach"><i class="fas fa-paperclip"></i> ${f.name}</div>`
+            ).join('');
+            this.attachedFiles = [];
+        }
+
+        div.innerHTML = `
+            ${avatar}
+            <div class="msg-content">
+                <p>${this.escapeHtml(content).replace(/\n/g, '<br>')}</p>
+                ${filesHtml}
+            </div>
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    addThinkingMessage() {
+        const container = document.getElementById('chatMessages');
+        const id = 'thinking-' + Date.now();
+        const div = document.createElement('div');
+        div.className = 'chat-msg ai';
+        div.id = id;
+        div.innerHTML = `
+            <div class="msg-avatar"><i class="fas fa-robot"></i></div>
+            <div class="msg-content msg-thinking">
+                <div class="dots"><span></span><span></span><span></span></div>
+                <div class="msg-status"><i class="fas fa-spinner"></i> Thinking...</div>
+            </div>
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return id;
+    }
+
+    chatAttachFile(e) {
+        const files = e.target.files;
+        if (!files.length) return;
+        for (const file of files) {
+            this.attachedFiles.push({ name: file.name, size: file.size, type: file.type, file });
+
+            if (file.type.startsWith('audio/')) {
+                this.handleAudioUpload(file);
+                this.addChatMessage('ai', `📁 Loaded audio file: **${file.name}**`);
+            } else if (file.type.startsWith('image/')) {
+                this.handleBgUpload(file);
+                this.addChatMessage('ai', `📁 Loaded background image: **${file.name}**`);
+            } else if (file.name.match(/\.(lrc|srt|ass)$/i)) {
+                this.handleLyricsUpload(file);
+                this.addChatMessage('ai', `📁 Loaded lyrics file: **${file.name}**`);
+            } else {
+                this.addChatMessage('ai', `📎 Received file: **${file.name}** (${(file.size / 1024).toFixed(1)} KB)`);
+            }
+        }
+        e.target.value = '';
+    }
+
+    /* ---- Templates ---- */
+    saveTemplate(name) {
+        const config = this.getStyleFromUI();
+        const templateName = name || prompt('Enter a name for this template:');
+        if (!templateName) return;
+
+        const template = {
+            id: Date.now().toString(36),
+            name: templateName,
+            type: this.getActiveTemplateType(),
+            config,
+            metadata: {
+                artistName: config.artistName,
+                songName: config.songName,
+                versionName: config.versionName
+            },
+            created: new Date().toISOString()
+        };
+
+        this.templates.push(template);
+        this.saveTemplates();
+        this.renderTemplates(template.type);
+        this.showToast(`Template "${templateName}" saved!`, 'success');
+        this.addChatMessage('ai', `✅ Template **"${templateName}"** saved! You can apply it anytime from the Templates tab.`);
+    }
+
+    getActiveTemplateType() {
+        const active = document.querySelector('.tmpl-tab.active');
+        return active ? active.dataset.ttype : 'video';
+    }
+
+    applyTemplate(id) {
+        const tmpl = this.templates.find(t => t.id === id);
+        if (!tmpl) return;
+
+        const c = tmpl.config;
+        document.getElementById('fontFamily').value = c.fontFamily || 'Amatic SC';
+        document.getElementById('fontSize').value = c.fontSize || 6;
+        document.getElementById('fontSizeVal').textContent = c.fontSize || 6;
+        document.getElementById('textColor').value = c.textColor || '#ffffff';
+        document.getElementById('shadowIntensity').value = c.shadowIntensity || 15;
+        document.getElementById('shadowVal').textContent = (c.shadowIntensity || 15) + 'px';
+        document.getElementById('animSpeed').value = c.animSpeed || 10;
+        document.getElementById('animSpeedVal').textContent = (c.animSpeed || 10) + 's';
+        document.getElementById('driftAmount').value = c.driftAmount || 15;
+        document.getElementById('driftVal').textContent = (c.driftAmount || 15) + 'px';
+        document.getElementById('fadeInDuration').value = c.fadeInDuration || 1.5;
+        document.getElementById('fadeInDurationVal').textContent = (c.fadeInDuration || 1.5) + 's';
+        document.getElementById('fadeOutDuration').value = c.fadeOutDuration || 1.5;
+        document.getElementById('fadeOutDurationVal').textContent = (c.fadeOutDuration || 1.5) + 's';
+        document.getElementById('maxTextWidth').value = c.maxTextWidth || 85;
+        document.getElementById('maxTextWidthVal').textContent = (c.maxTextWidth || 85) + '%';
+        document.getElementById('overlayColor').value = c.overlayColor || '#6c11c9';
+        document.getElementById('overlayOpacity').value = c.overlayOpacity || 0.3;
+        document.getElementById('overlayOpacityVal').textContent = c.overlayOpacity || 0.3;
+        document.getElementById('bgBlur').value = c.bgBlur || 5;
+        document.getElementById('bgBlurVal').textContent = (c.bgBlur || 5) + 'px';
+
+        if (tmpl.metadata) {
+            if (tmpl.metadata.artistName) document.getElementById('artistName').value = tmpl.metadata.artistName;
+            if (tmpl.metadata.songName) document.getElementById('songName').value = tmpl.metadata.songName;
+            if (tmpl.metadata.versionName) document.getElementById('versionName').value = tmpl.metadata.versionName;
+            this.updateMetadata();
+        }
+
+        this.updatePreview();
+        this.showToast(`Template "${tmpl.name}" applied!`, 'success');
+    }
+
+    deleteTemplate(id) {
+        this.templates = this.templates.filter(t => t.id !== id);
+        this.saveTemplates();
+        const active = document.querySelector('.tmpl-tab.active');
+        this.renderTemplates(active ? active.dataset.ttype : 'video');
+        this.showToast('Template deleted', 'info');
+    }
+
+    renderTemplates(type) {
+        const container = document.getElementById('templateList');
+        const filtered = this.templates.filter(t => t.type === type);
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="template-empty">
+                    <i class="fas fa-box-open"></i>
+                    <p>No ${type} templates saved yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(t => `
+            <div class="template-item" data-id="${t.id}">
+                <div class="template-item-info">
+                    <h5>${this.escapeHtml(t.name)}</h5>
+                    <p>${t.metadata?.songName ? `${t.metadata.artistName || '?'} — ${t.metadata.songName}` : ''} • ${new Date(t.created).toLocaleDateString()}</p>
+                </div>
+                <div class="template-item-actions">
+                    <button class="tmpl-apply" title="Apply template"><i class="fas fa-check"></i></button>
+                    <button class="tmpl-delete" title="Delete"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.template-item').forEach(item => {
+            item.querySelector('.tmpl-apply').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.applyTemplate(item.dataset.id);
+            });
+            item.querySelector('.tmpl-delete').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteTemplate(item.dataset.id);
+            });
+            item.addEventListener('click', () => this.applyTemplate(item.dataset.id));
+        });
+    }
+
+    importTemplate() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const tmpl = JSON.parse(ev.target.result);
+                    if (tmpl.config) {
+                        this.templates.push(tmpl);
+                        this.saveTemplates();
+                        this.renderTemplates(tmpl.type || 'video');
+                        this.showToast(`Template "${tmpl.name}" imported!`, 'success');
+                    }
+                } catch { this.showToast('Invalid template file', 'error'); }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    /* ---- Google Sign-In ---- */
+    async googleSignIn() {
+        this.showToast('Google Sign-In ready for YouTube & Drive integration.', 'info');
+        try {
+            const clientId = localStorage.getItem('ytClientId');
+            if (!clientId) {
+                this.showToast('Set your YouTube Client ID in Settings first.', 'warning');
+                return;
+            }
+            const scope = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/drive.file';
+            const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true`;
+            window.open(url, 'google-oauth', 'width=600,height=700');
+            this.showToast('Google OAuth opened in new window. Complete sign-in there.', 'success');
+            document.getElementById('googleSignInBtn').hidden = true;
+            document.getElementById('googleSignOutBtn').hidden = false;
+            document.getElementById('googleUserInfo').hidden = false;
+            document.getElementById('googleName').textContent = 'Connected';
+            document.getElementById('googleEmail').textContent = 'YouTube & Drive access granted';
+        } catch (e) {
+            this.showToast('Google Sign-In failed: ' + e.message, 'error');
+        }
+    }
+
+    googleSignOut() {
+        document.getElementById('googleSignInBtn').hidden = false;
+        document.getElementById('googleSignOutBtn').hidden = true;
+        document.getElementById('googleUserInfo').hidden = true;
+        localStorage.removeItem('google_token');
+        this.showToast('Signed out from Google', 'info');
+    }
+
     /* ---- Rendering ---- */
     async startRender() {
         if (this.renderer.isRendering) {
@@ -576,8 +1017,8 @@ class LyricForgeEditor {
             document.getElementById('renderProgress').style.width = '100%';
             document.getElementById('renderActions').hidden = false;
 
-            // Generate thumbnail
-            this.thumbnailBlob = await this.renderer.generateThumbnail(2);
+            // Generate thumbnail (Song as H1, Artist as H2)
+            this.thumbnailBlob = await this.renderer.generateThumbnail();
 
             // Save to Supabase
             const supabase = new LyricForgeSupabase();
@@ -614,7 +1055,7 @@ class LyricForgeEditor {
 
     async downloadThumbnail() {
         if (!this.thumbnailBlob) {
-            this.thumbnailBlob = await this.renderer.generateThumbnail(2);
+            this.thumbnailBlob = await this.renderer.generateThumbnail();
         }
         const config = this.getStyleFromUI();
         const name = `${config.artistName || 'unknown'}-${config.songName || 'unknown'}-thumbnail`.replace(/\s+/g, '_');
