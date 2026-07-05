@@ -88,7 +88,7 @@
         const saveBtn = document.getElementById('saveSettings');
 
         saveBtn?.addEventListener('click', () => {
-            const keys = ['supabaseUrl', 'supabaseKey', 'deepseekKey', 'ytApiKey', 'ytClientId', 'driveFolderId', 'serverUrl'];
+            const keys = ['supabaseUrl', 'supabaseKey', 'deepseekKey', 'ytApiKey', 'ytClientId', 'driveFolderId', 'serverUrl', 'githubToken'];
             keys.forEach(key => {
                 const el = document.getElementById(key);
                 if (el) {

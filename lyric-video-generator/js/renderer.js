@@ -69,6 +69,7 @@ class VideoRenderer {
         this.drawBackground(ctx, w, h);
         this.drawOverlay(ctx, w, h);
         this.drawLyrics(ctx, w, h, time + (this.config.audioOffset || 0));
+        this.drawWatermark(ctx, w, h);
     }
 
     drawBackground(ctx, w, h) {
@@ -110,6 +111,24 @@ class VideoRenderer {
             return;
         }
         this.drawSingleLyric(ctx, w, h, active, time, speed, drift);
+    }
+
+    drawWatermark(ctx, w, h) {
+        const artist = this.config.artistName || '';
+        const song = this.config.songName || '';
+        if (!artist && !song) return;
+        const text = `${artist} — ${song}`;
+        const ff = `"${this.config.fontFamily || 'Amatic SC'}", cursive`;
+        ctx.save();
+        ctx.font = `400 32px ${ff}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.globalAlpha = 0.35;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, w / 2, h - 40);
+        ctx.restore();
     }
 
     drawSingleLyric(ctx, w, h, lyric, time, speed, drift) {

@@ -65,6 +65,9 @@ CREATE POLICY "Public access for settings"
     USING (true)
     WITH CHECK (true);
 
+-- Storage buckets (create via Supabase dashboard or API)
+-- Buckets needed: 'render-assets' (for uploads), 'rendered-videos' (for results)
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_videos_artist ON videos(artist_name);
 CREATE INDEX IF NOT EXISTS idx_videos_song ON videos(song_name);
@@ -94,3 +97,31 @@ CREATE TRIGGER update_settings_updated_at
     BEFORE UPDATE ON settings
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();
+
+-- Cloud render jobs table (used by GitHub Actions free render worker)
+CREATE TABLE IF NOT EXISTS render_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    artist_name TEXT NOT NULL DEFAULT '',
+    song_name TEXT NOT NULL DEFAULT '',
+    config JSONB DEFAULT '{}',
+    lyrics JSONB DEFAULT '[]',
+    audio_url TEXT DEFAULT '',
+    bg_url TEXT DEFAULT '',
+    lyrics_url TEXT DEFAULT '',
+    audio_duration FLOAT DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    error TEXT DEFAULT '',
+    result_url TEXT DEFAULT '',
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE render_jobs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public access for render_jobs"
+    ON render_jobs FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_render_jobs_status ON render_jobs(status);

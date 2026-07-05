@@ -406,6 +406,14 @@
                     <i class="fab fa-google-drive"></i> Upload to Drive
                 </button>
             </div>
+            <div class="render-actions" style="margin-top:12px;gap:12px">
+                <button id="cloudRenderBtn" class="btn btn-cloud">
+                    <i class="fas fa-cloud"></i> Render in Cloud (GitHub Actions)
+                </button>
+                <button id="pollCloudBtn" class="btn btn-secondary" hidden>
+                    <i class="fas fa-sync"></i> Check Cloud Render Status
+                </button>
+            </div>
         </div>
     </section>
 
@@ -458,6 +466,14 @@
                 <div class="form-group">
                     <label>Drive Folder ID <span class="optional">Optional</span></label>
                     <input type="text" id="driveFolderId" placeholder="(pre-configured)">
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4><i class="fab fa-github"></i> GitHub Token</h4>
+                <p class="settings-hint">Required for immediate cloud render triggering. Get it from GitHub Settings → Developer settings → Personal access tokens (repo scope). If not set, the cron worker will pick up jobs every 10 min.</p>
+                <div class="form-group">
+                    <label>GitHub Personal Access Token</label>
+                    <input type="password" id="githubToken" placeholder="ghp_...">
                 </div>
             </div>
             <div class="settings-section">

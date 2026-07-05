@@ -189,6 +189,63 @@ class LyricForgeSupabase {
         }
     }
 
+    /* ---- Cloud Render Jobs ---- */
+    async createRenderJob(jobData) {
+        if (!this.isConnected()) return null;
+        try {
+            const { data, error } = await this.client
+                .from('render_jobs')
+                .insert([{
+                    artist_name: jobData.artistName || '',
+                    song_name: jobData.songName || '',
+                    config: jobData.config || {},
+                    lyrics: jobData.lyrics || [],
+                    audio_url: jobData.audioUrl || '',
+                    bg_url: jobData.bgUrl || '',
+                    lyrics_url: jobData.lyricsUrl || '',
+                    audio_duration: jobData.audioDuration || 0,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+            if (error) throw error;
+            return data?.[0] || null;
+        } catch (e) {
+            console.warn('Supabase createRenderJob failed:', e.message);
+            return null;
+        }
+    }
+
+    async getRenderJob(id) {
+        if (!this.isConnected()) return null;
+        try {
+            const { data, error } = await this.client
+                .from('render_jobs')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (error) throw error;
+            return data;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async getMyRenderJobs(limit = 10) {
+        if (!this.isConnected()) return [];
+        try {
+            const { data, error } = await this.client
+                .from('render_jobs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     /* ---- Settings ---- */
     async getSettings() {
         if (!this.isConnected()) return {};

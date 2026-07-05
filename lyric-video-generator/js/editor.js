@@ -256,6 +256,8 @@ class LyricForgeEditor {
 
         // Render
         document.getElementById('renderBtn').addEventListener('click', () => this.startRender());
+        document.getElementById('cloudRenderBtn').addEventListener('click', () => this.triggerCloudRender());
+        document.getElementById('pollCloudBtn').addEventListener('click', () => this.pollCloudRenderLast());
 
         // Export
         document.getElementById('downloadBtn').addEventListener('click', () => this.downloadVideo());
@@ -1230,6 +1232,121 @@ class LyricForgeEditor {
         }
     }
 
+    /* ---- Cloud Render (GitHub Actions) ---- */
+    async triggerCloudRender() {
+        const config = this.getStyleFromUI();
+        if (!this.lyrics.length || !this.audioFile) {
+            this.showToast('Need lyrics + audio for cloud render', 'warning');
+            return;
+        }
+
+        const supabase = new LyricForgeSupabase();
+        if (!supabase.isConnected()) {
+            this.showToast('Supabase not connected — cloud render requires Supabase', 'error');
+            return;
+        }
+
+        // Upload assets to Supabase storage
+        const { artistName, songName } = config;
+
+        let audioUrl = '', bgUrl = '', lyricsUrl = '';
+
+        try {
+            this.showToast('Uploading assets to cloud...', 'info');
+
+            if (this.audioFile) {
+                const audioFileName = `${Date.now()}-audio.${this.audioFile.name.split('.').pop() || 'mp3'}`;
+                const { data: aData, error: aErr } = await supabase.client.storage
+                    .from('render-assets')
+                    .upload(audioFileName, this.audioFile, { upsert: true, contentType: this.audioFile.type });
+                if (aErr) throw aErr;
+                const { data: aUrl } = supabase.client.storage.from('render-assets').getPublicUrl(audioFileName);
+                audioUrl = aUrl.publicUrl;
+            }
+
+            if (this.bgImage) {
+                const bgFileName = `${Date.now()}-bg.jpg`;
+                const resp = await fetch(this.bgImage.src);
+                const bgBlob = await resp.blob();
+                const { data: bData, error: bErr } = await supabase.client.storage
+                    .from('render-assets')
+                    .upload(bgFileName, bgBlob, { upsert: true, contentType: 'image/jpeg' });
+                if (bErr) throw bErr;
+                const { data: bUrl } = supabase.client.storage.from('render-assets').getPublicUrl(bgFileName);
+                bgUrl = bUrl.publicUrl;
+            }
+
+            const lyricsText = this.lyrics.map(l => ({ time: l.time, text: l.text }));
+            const lyricsBlob = new Blob([JSON.stringify(lyricsText)], { type: 'application/json' });
+            const lyricsFileName = `${Date.now()}-lyrics.json`;
+            const { data: lData, error: lErr } = await supabase.client.storage
+                .from('render-assets')
+                .upload(lyricsFileName, lyricsBlob, { upsert: true, contentType: 'application/json' });
+            if (lErr) throw lErr;
+            const { data: lUrl } = supabase.client.storage.from('render-assets').getPublicUrl(lyricsFileName);
+            lyricsUrl = lUrl.publicUrl;
+
+            // Create render job
+            const job = await supabase.createRenderJob({
+                artistName,
+                songName,
+                config,
+                lyrics: lyricsText,
+                audioUrl,
+                bgUrl,
+                lyricsUrl,
+                audioDuration: this.audioDuration
+            });
+
+            if (job) {
+                this.showToast(`Cloud render job created! ID: ${job.id.substring(0, 8)}...`, 'success');
+
+                // Optionally trigger GitHub Actions workflow dispatch via API
+                this.triggerGHAction(job.id);
+            } else {
+                this.showToast('Failed to create cloud render job', 'error');
+            }
+        } catch (e) {
+            this.showToast(`Cloud render failed: ${e.message}`, 'error');
+        }
+    }
+
+    async triggerGHAction(jobId) {
+        const token = localStorage.getItem('github_token');
+        if (!token) {
+            this.addChatMessage('ai', `ℹ️ Cloud render job **${jobId.substring(0, 8)}...** created! Add a GitHub PAT in Settings → GitHub Token to auto-trigger the worker. Or wait for the scheduled cron (every 10 min).`);
+            return;
+        }
+        try {
+            const resp = await fetch(`https://api.github.com/repos/${window.location.hostname.includes('hanitt') ? 'hanitkamboj/hanitt' : 'USER/REPO'}/dispatches`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+                body: JSON.stringify({ event_type: 'cloud-render', client_payload: { job_id: jobId } })
+            });
+            if (resp.ok) {
+                this.addChatMessage('ai', `☁️ Cloud render triggered! Job **${jobId.substring(0, 8)}...** is being processed by GitHub Actions.`);
+            } else {
+                this.addChatMessage('ai', `ℹ️ Cloud job created. The worker will pick it up within 10 min (cron schedule).`);
+            }
+        } catch {
+            this.addChatMessage('ai', `ℹ️ Cloud job created. It will be processed automatically.`);
+        }
+    }
+
+    async pollCloudRender(jobId) {
+        const supabase = new LyricForgeSupabase();
+        const maxAttempts = 60;
+        for (let i = 0; i < maxAttempts; i++) {
+            const job = await supabase.getRenderJob(jobId);
+            if (!job) { this.showToast('Job not found', 'error'); return null; }
+            if (job.status === 'completed') return job.result_url;
+            if (job.status === 'failed') { this.showToast(`Render failed: ${job.error}`, 'error'); return null; }
+            await new Promise(r => setTimeout(r, 10000));
+        }
+        this.showToast('Render timed out — check back later', 'warning');
+        return null;
+    }
+
     /* ---- Export ---- */
     downloadVideo() {
         if (!this.renderedBlob) {
@@ -1346,9 +1463,24 @@ class LyricForgeEditor {
         }
     }
 
+    async pollCloudRenderLast() {
+        const supabase = new LyricForgeSupabase();
+        const jobs = await supabase.getMyRenderJobs(1);
+        if (!jobs.length) { this.showToast('No cloud render jobs found', 'info'); return; }
+        const job = jobs[0];
+        if (job.status === 'completed') {
+            this.showToast(`Cloud render complete! ${job.result_url}`, 'success');
+            if (job.result_url) window.open(job.result_url, '_blank');
+        } else if (job.status === 'failed') {
+            this.showToast(`Cloud render failed: ${job.error}`, 'error');
+        } else {
+            this.showToast(`Cloud render is ${job.status} (started: ${job.started_at || 'not yet'})`, 'info');
+        }
+    }
+
     /* ---- Settings ---- */
     loadSettings() {
-        const keys = ['supabaseUrl', 'supabaseKey', 'deepseekKey', 'ytApiKey', 'ytClientId', 'driveFolderId', 'serverUrl'];
+        const keys = ['supabaseUrl', 'supabaseKey', 'deepseekKey', 'ytApiKey', 'ytClientId', 'driveFolderId', 'serverUrl', 'githubToken'];
         keys.forEach(key => {
             const el = document.getElementById(key);
             if (el) el.value = localStorage.getItem(key) || '';

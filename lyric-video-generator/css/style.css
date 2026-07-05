@@ -306,6 +306,21 @@ body {
     transform: translateY(-2px);
 }
 
+.btn-cloud {
+    background: #0d1117;
+    color: white;
+    border: 1px solid #30363d;
+}
+
+.btn-cloud:hover {
+    background: #161b22;
+    transform: translateY(-2px);
+}
+
+.btn-cloud i {
+    color: #58a6ff;
+}
+
 .btn-small {
     padding: 6px 14px;
     font-size: 0.8rem;
