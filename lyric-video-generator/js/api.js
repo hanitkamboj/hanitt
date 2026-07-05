@@ -5,7 +5,16 @@
 class LyricForgeAPI {
     constructor() {
         this.lrclibUrl = 'https://lrclib.net/api';
-        this.serverUrl = localStorage.getItem('serverUrl') || 'http://localhost:3000';
+        this.serverUrl = this.detectServerUrl();
+    }
+
+    detectServerUrl() {
+        const stored = localStorage.getItem('serverUrl');
+        if (stored) return stored;
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            return window.location.origin;
+        }
+        return 'http://localhost:3000';
     }
 
     /* ---- LRCLib Integration ---- */
