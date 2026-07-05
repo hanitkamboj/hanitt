@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LyricForge — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="nav-brand">
+        <i class="fas fa-music"></i>
+        <span>LyricForge</span>
+    </div>
+    <div class="nav-links">
+        <a href="index.html"><i class="fas fa-plus-circle"></i> Create</a>
+        <a href="dashboard.html" class="active"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a href="#" id="settingsBtn"><i class="fas fa-cog"></i> Settings</a>
+    </div>
+    <div class="nav-user">
+        <span class="connection-status" id="connStatus"><i class="fas fa-circle"></i> Disconnected</span>
+    </div>
+</nav>
+
+<main class="dashboard-container">
+    <div class="dashboard-header">
+        <h1><i class="fas fa-th-large"></i> Dashboard</h1>
+        <p>Manage your lyric video projects, YouTube uploads, and view analytics.</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-video"></i></div>
+            <div class="stat-info">
+                <span class="stat-value" id="statVideos">0</span>
+                <span class="stat-label">Total Videos</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-clock"></i></div>
+            <div class="stat-info">
+                <span class="stat-value" id="statDuration">0h</span>
+                <span class="stat-label">Total Duration</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fab fa-youtube"></i></div>
+            <div class="stat-info">
+                <span class="stat-value" id="statYouTube">0</span>
+                <span class="stat-label">YouTube Uploads</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-tabs">
+        <button class="dash-tab active" data-dtab="videos">
+            <i class="fas fa-list"></i> All Videos
+        </button>
+        <button class="dash-tab" data-dtab="youtube">
+            <i class="fab fa-youtube"></i> YouTube Requests
+        </button>
+        <button class="dash-tab" data-dtab="settings">
+            <i class="fas fa-cog"></i> Settings
+        </button>
+    </div>
+
+    <div class="dash-content active" id="dashVideos">
+        <div class="dash-toolbar">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="videoSearch" placeholder="Search videos...">
+            </div>
+            <select id="videoFilter">
+                <option value="all">All Status</option>
+                <option value="draft">Draft</option>
+                <option value="rendered">Rendered</option>
+                <option value="uploaded">Uploaded</option>
+            </select>
+        </div>
+        <div class="videos-grid" id="videosGrid">
+            <div class="empty-state">
+                <i class="fas fa-video"></i>
+                <h3>No videos yet</h3>
+                <p>Create your first lyric video to see it here.</p>
+                <a href="index.html" class="btn btn-primary"><i class="fas fa-plus"></i> Create Video</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-content" id="dashYoutube">
+        <div class="dash-toolbar">
+            <h3><i class="fab fa-youtube"></i> YouTube Upload Requests</h3>
+        </div>
+        <div class="yt-requests-list" id="ytRequestsList">
+            <div class="empty-state">
+                <i class="fab fa-youtube"></i>
+                <h3>No YouTube uploads yet</h3>
+                <p>Upload a video to YouTube to track it here.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-content" id="dashSettings">
+        <div class="settings-panel">
+            <div class="dash-setting-group">
+                <h4><i class="fas fa-database"></i> Supabase</h4>
+                <div class="form-group">
+                    <label>URL</label>
+                    <input type="text" id="dSupabaseUrl" placeholder="https://your-project.supabase.co">
+                </div>
+                <div class="form-group">
+                    <label>Anon Key</label>
+                    <input type="password" id="dSupabaseKey" placeholder="your-anon-key">
+                </div>
+            </div>
+            <div class="dash-setting-group">
+                <h4><i class="fas fa-robot"></i> DeepSeek AI</h4>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="dDeepseekKey" placeholder="sk-...">
+                </div>
+            </div>
+            <div class="dash-setting-group">
+                <h4><i class="fab fa-youtube"></i> YouTube</h4>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="dYtApiKey" placeholder="AIza...">
+                </div>
+                <div class="form-group">
+                    <label>Client ID</label>
+                    <input type="text" id="dYtClientId" placeholder="...apps.googleusercontent.com">
+                </div>
+            </div>
+            <div class="dash-setting-group">
+                <h4><i class="fab fa-google-drive"></i> Google Drive</h4>
+                <div class="form-group">
+                    <label>Folder ID (optional)</label>
+                    <input type="text" id="dDriveFolderId" placeholder="folder-id">
+                </div>
+            </div>
+            <button class="btn btn-primary" id="dSaveSettings"><i class="fas fa-save"></i> Save Settings</button>
+        </div>
+    </div>
+</main>
+
+<div class="modal" id="videoDetailModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3><i class="fas fa-video"></i> Video Details</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="videoDetailBody">
+            <div class="video-detail-loading">Loading...</div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Close</button>
+            <button class="btn btn-danger" id="deleteVideoBtn"><i class="fas fa-trash"></i> Delete</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/api.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
