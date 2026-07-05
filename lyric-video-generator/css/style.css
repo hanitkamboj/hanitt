@@ -1565,6 +1565,17 @@ body {
     gap: 4px;
 }
 
+.tmpl-badge {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    vertical-align: middle;
+    margin-left: 4px;
+    font-weight: 500;
+}
+
 .template-item-actions button {
     background: none;
     border: none;

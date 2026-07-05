@@ -23,8 +23,94 @@ class LyricForgeEditor {
     }
 
     loadTemplates() {
-        try { return JSON.parse(localStorage.getItem('lyricforge_templates') || '[]'); }
-        catch { return []; }
+        try {
+            const saved = JSON.parse(localStorage.getItem('lyricforge_templates') || '[]');
+            if (saved.length > 0) return saved;
+        } catch {}
+        return this.getDefaultTemplates();
+    }
+
+    getDefaultTemplates() {
+        return [
+            {
+                id: 'premade-purple',
+                name: 'Purple Dream',
+                type: 'video',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 6, textColor: '#ffffff',
+                    shadowIntensity: 15, animSpeed: 10, driftAmount: 15,
+                    fadeInDuration: 1.5, fadeOutDuration: 1.5, maxTextWidth: 85,
+                    overlayColor: '#6c11c9', overlayOpacity: 0.3, bgBlur: 5
+                },
+                metadata: { artistName: '', songName: '', versionName: '' },
+                created: '2025-01-01T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-night',
+                name: 'Night Sky',
+                type: 'video',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 7, textColor: '#e2e8f0',
+                    shadowIntensity: 20, animSpeed: 12, driftAmount: 10,
+                    fadeInDuration: 2, fadeOutDuration: 2, maxTextWidth: 80,
+                    overlayColor: '#0f172a', overlayOpacity: 0.5, bgBlur: 8
+                },
+                metadata: { artistName: '', songName: '', versionName: '' },
+                created: '2025-01-02T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-sunset',
+                name: 'Warm Sunset',
+                type: 'video',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 6, textColor: '#fff7ed',
+                    shadowIntensity: 18, animSpeed: 8, driftAmount: 20,
+                    fadeInDuration: 1.8, fadeOutDuration: 1.8, maxTextWidth: 85,
+                    overlayColor: '#9a3412', overlayOpacity: 0.35, bgBlur: 6
+                },
+                metadata: { artistName: '', songName: '', versionName: '' },
+                created: '2025-01-03T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-neon',
+                name: 'Neon Pulse',
+                type: 'video',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 7, textColor: '#f0abfc',
+                    shadowIntensity: 25, animSpeed: 14, driftAmount: 25,
+                    fadeInDuration: 1, fadeOutDuration: 1.2, maxTextWidth: 90,
+                    overlayColor: '#2e1065', overlayOpacity: 0.4, bgBlur: 3
+                },
+                metadata: { artistName: '', songName: '', versionName: '' },
+                created: '2025-01-04T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-clean',
+                name: 'Clean Minimal',
+                type: 'video',
+                config: {
+                    fontFamily: 'Inter', fontSize: 5, textColor: '#f8fafc',
+                    shadowIntensity: 8, animSpeed: 10, driftAmount: 8,
+                    fadeInDuration: 1.5, fadeOutDuration: 1.5, maxTextWidth: 75,
+                    overlayColor: '#1e293b', overlayOpacity: 0.2, bgBlur: 2
+                },
+                metadata: { artistName: '', songName: '', versionName: '' },
+                created: '2025-01-05T00:00:00.000Z', premade: true
+            },
+            {
+                id: 'premade-yt-thumb',
+                name: 'YouTube Standard',
+                type: 'thumbnail',
+                config: {
+                    fontFamily: 'Amatic SC', fontSize: 7, textColor: '#ffffff',
+                    shadowIntensity: 20, animSpeed: 10, driftAmount: 0,
+                    fadeInDuration: 0, fadeOutDuration: 0, maxTextWidth: 90,
+                    overlayColor: '#0f172a', overlayOpacity: 0.4, bgBlur: 4
+                },
+                metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
+                created: '2025-01-06T00:00:00.000Z', premade: true
+            }
+        ];
     }
 
     saveTemplates() {
@@ -891,12 +977,12 @@ class LyricForgeEditor {
         container.innerHTML = filtered.map(t => `
             <div class="template-item" data-id="${t.id}">
                 <div class="template-item-info">
-                    <h5>${this.escapeHtml(t.name)}</h5>
-                    <p>${t.metadata?.songName ? `${t.metadata.artistName || '?'} — ${t.metadata.songName}` : ''} • ${new Date(t.created).toLocaleDateString()}</p>
+                    <h5>${this.escapeHtml(t.name)} ${t.premade ? '<span class="tmpl-badge">Built-in</span>' : ''}</h5>
+                    <p>${t.metadata?.songName ? `${t.metadata.artistName || '?'} — ${t.metadata.songName}` : ''} ${!t.premade ? '• ' + new Date(t.created).toLocaleDateString() : ''}</p>
                 </div>
                 <div class="template-item-actions">
                     <button class="tmpl-apply" title="Apply template"><i class="fas fa-check"></i></button>
-                    <button class="tmpl-delete" title="Delete"><i class="fas fa-trash"></i></button>
+                    ${!t.premade ? '<button class="tmpl-delete" title="Delete"><i class="fas fa-trash"></i></button>' : ''}
                 </div>
             </div>
         `).join('');
