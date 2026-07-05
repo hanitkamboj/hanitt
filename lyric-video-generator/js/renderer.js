@@ -21,19 +21,11 @@ class VideoRenderer {
         this.canvas = canvasElement;
         this.ctx = canvasElement.getContext('2d', { alpha: false });
         this.config = {
-            fontFamily: 'Amatic SC',
-            fontSize: 6,
-            textColor: '#ffffff',
-            shadowIntensity: 15,
-            animSpeed: 10,
-            driftAmount: 15,
-            overlayColor: '#6c11c9',
-            overlayOpacity: 0.3,
-            bgBlur: 5,
-            fadeInDuration: 1.5,
-            fadeOutDuration: 1.5,
-            maxTextWidth: 85,
-            audioOffset: 0,
+            fontFamily: 'Amatic SC', fontSize: 6, textColor: '#ffffff',
+            shadowIntensity: 15, animSpeed: 10, driftAmount: 15,
+            overlayColor: '#6c11c9', overlayOpacity: 0.3, bgBlur: 5,
+            fadeInDuration: 1.5, fadeOutDuration: 1.5, maxTextWidth: 85,
+            audioOffset: 0, maxCharsPerLine: 0,
             ...config
         };
         this.canvas.width = 1920;
@@ -59,8 +51,8 @@ class VideoRenderer {
         this.lyrics = lyrics.map((l, i) => ({
             ...l,
             endTime: i < lyrics.length - 1
-                ? lyrics[i + 1].time + (lyrics[i + 1].time - l.time) * 0.3
-                : l.time + 4
+                ? lyrics[i + 1].time - Math.min(0.5, (lyrics[i + 1].time - l.time) * 0.15)
+                : l.time + 5
         }));
         return this;
     }
@@ -71,11 +63,8 @@ class VideoRenderer {
     getStyleConfig() { return { ...this.config }; }
     updateConfig(updates) { Object.assign(this.config, updates); }
 
-    /* ---- DRAW FRAME ---- */
     drawFrame(time) {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
         ctx.clearRect(0, 0, w, h);
         this.drawBackground(ctx, w, h);
         this.drawOverlay(ctx, w, h);
@@ -106,22 +95,21 @@ class VideoRenderer {
     drawLyrics(ctx, w, h, time) {
         const speed = this.config.animSpeed || 10;
         const drift = this.config.driftAmount || 15;
-        let activeLyric = null;
+        let active = null;
         for (const l of this.lyrics) {
-            if (time >= l.time && time < l.endTime) { activeLyric = l; break; }
+            if (time >= l.time && time < l.endTime) { active = l; break; }
         }
-        if (!activeLyric) {
+        if (!active) {
             const prev = this.lyrics.filter(l => l.endTime <= time).pop();
             if (prev) {
                 const fOut = this.config.fadeOutDuration || 1.5;
-                const fadeOutStart = prev.endTime - fOut;
-                if (time > fadeOutStart && time < prev.endTime) {
+                if (time > prev.endTime - fOut && time < prev.endTime) {
                     this.drawSingleLyric(ctx, w, h, prev, time, speed, drift);
                 }
             }
             return;
         }
-        this.drawSingleLyric(ctx, w, h, activeLyric, time, speed, drift);
+        this.drawSingleLyric(ctx, w, h, active, time, speed, drift);
     }
 
     drawSingleLyric(ctx, w, h, lyric, time, speed, drift) {
@@ -141,8 +129,15 @@ class VideoRenderer {
         const yDrift = Math.sin((phase * Math.PI * 2) - Math.PI / 2) * (drift * 0.8);
 
         const maxW = (w * (this.config.maxTextWidth || 85)) / 100;
-        let baseSize = (this.config.fontSize || 6) * (h / 1080) * 100;
+        const baseSize = (this.config.fontSize || 6) * (h / 1080) * 100;
         const fontFamily = `"${this.config.fontFamily}", cursive`;
+
+        let lines = [lyric.text];
+        const maxChars = parseInt(this.config.maxCharsPerLine) || 0;
+        if (maxChars > 0 && lyric.text.length > maxChars) {
+            lines = this.wrapText(lyric.text, maxChars);
+        }
+        const lineH = 1.3;
 
         ctx.save();
         ctx.textAlign = 'center';
@@ -150,9 +145,13 @@ class VideoRenderer {
 
         let fontSize = baseSize;
         ctx.font = `700 ${fontSize}px ${fontFamily}`;
-        let textW = ctx.measureText(lyric.text).width;
-        if (textW > maxW) {
-            fontSize = baseSize * (maxW / textW);
+        let maxLineW = 0;
+        for (const line of lines) {
+            const lw = ctx.measureText(line).width;
+            if (lw > maxLineW) maxLineW = lw;
+        }
+        if (maxLineW > maxW) {
+            fontSize = baseSize * (maxW / maxLineW);
             ctx.font = `700 ${fontSize}px ${fontFamily}`;
         }
 
@@ -161,9 +160,38 @@ class VideoRenderer {
         ctx.shadowBlur = shadowPx;
         ctx.globalAlpha = opacity;
         ctx.fillStyle = this.config.textColor || '#ffffff';
+        ctx.save();
         ctx.translate(w / 2 + xDrift, h / 2 + yDrift);
-        ctx.fillText(lyric.text, 0, 0);
+
+        const totalH = lines.length * fontSize * lineH;
+        const startY = -(totalH / 2) + (fontSize * lineH * 0.35);
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i], 0, startY + i * fontSize * lineH);
+        }
         ctx.restore();
+        ctx.restore();
+    }
+
+    wrapText(text, maxLen) {
+        const words = text.split(' ');
+        const lines = [];
+        let cur = '';
+        for (const w of words) {
+            if ((cur + ' ' + w).trim().length <= maxLen) {
+                cur = (cur + ' ' + w).trim();
+            } else {
+                if (cur) lines.push(cur);
+                cur = w;
+                if (cur.length > maxLen) {
+                    while (cur.length > maxLen) {
+                        lines.push(cur.substring(0, maxLen));
+                        cur = cur.substring(maxLen);
+                    }
+                }
+            }
+        }
+        if (cur) lines.push(cur);
+        return lines.length > 0 ? lines : [text];
     }
 
     /* ---- PREVIEW ---- */
@@ -261,7 +289,7 @@ class VideoRenderer {
         } catch (e) { console.error('FFmpeg error:', e); return videoBlob; }
     }
 
-    /* ---- THUMBNAIL (Song as H1, Artist as H2) ---- */
+    /* ---- THUMBNAIL ---- */
     generateThumbnail() {
         const c = document.createElement('canvas');
         c.width = 1920; c.height = 1080;
@@ -276,13 +304,11 @@ class VideoRenderer {
         const song = this.config.songName || 'Song Title';
         const artist = this.config.artistName || 'Artist Name';
         const version = this.config.versionName || '';
-
         const ff = `"${this.config.fontFamily || 'Amatic SC'}", cursive`;
 
         cx.save();
         cx.textAlign = 'center';
 
-        // Song title - big, centered
         const songText = version ? `${song} (${version})` : song;
         let songSize = 140;
         cx.font = `700 ${songSize}px ${ff}`;
@@ -294,19 +320,18 @@ class VideoRenderer {
         cx.shadowBlur = 20;
         cx.fillStyle = '#ffffff';
         cx.textBaseline = 'middle';
-        cx.fillText(songText, 960, 480);
+        cx.fillText(songText, 960, 460);
 
-        // Artist - smaller, below
         const artSize = Math.max(50, songSize * 0.45);
         cx.font = `400 ${artSize}px ${ff}`;
         cx.shadowColor = 'rgba(0,0,0,0.6)';
         cx.shadowBlur = 12;
         cx.globalAlpha = 0.85;
         cx.fillStyle = '#f1f5f9';
-        cx.fillText(artist, 960, 560 + songSize * 0.3);
+        cx.textBaseline = 'top';
+        cx.fillText(artist, 960, 520 + songSize * 0.15);
 
         cx.restore();
-
         return new Promise(resolve => c.toBlob(b => resolve(b), 'image/jpeg', 0.95));
     }
 

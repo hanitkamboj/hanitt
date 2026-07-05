@@ -1,6 +1,5 @@
 # Ignore files that shouldn't be deployed
 backend/.env
-lyric-video-generator/js/config.js
 .git
 .gitignore
 *.md

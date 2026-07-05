@@ -1,7 +1,6 @@
 # Credentials and secrets
 .env
 backend/.env
-js/config.js
 
 # Uploads and generated files
 backend/uploads/

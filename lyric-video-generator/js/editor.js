@@ -39,7 +39,7 @@ class LyricForgeEditor {
                 config: {
                     fontFamily: 'Amatic SC', fontSize: 6, textColor: '#ffffff',
                     shadowIntensity: 15, animSpeed: 10, driftAmount: 15,
-                    fadeInDuration: 1.5, fadeOutDuration: 1.5, maxTextWidth: 85,
+                    fadeInDuration: 1.5, fadeOutDuration: 1.5, maxTextWidth: 85, maxCharsPerLine: 0,
                     overlayColor: '#6c11c9', overlayOpacity: 0.3, bgBlur: 5
                 },
                 metadata: { artistName: '', songName: '', versionName: '' },
@@ -53,7 +53,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 7, textColor: '#e2e8f0',
                     shadowIntensity: 20, animSpeed: 12, driftAmount: 10,
                     fadeInDuration: 2, fadeOutDuration: 2, maxTextWidth: 80,
-                    overlayColor: '#0f172a', overlayOpacity: 0.5, bgBlur: 8
+                    overlayColor: '#0f172a', overlayOpacity: 0.5, bgBlur: 8, maxCharsPerLine: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: '' },
                 created: '2025-01-02T00:00:00.000Z', premade: true
@@ -66,7 +66,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 6, textColor: '#fff7ed',
                     shadowIntensity: 18, animSpeed: 8, driftAmount: 20,
                     fadeInDuration: 1.8, fadeOutDuration: 1.8, maxTextWidth: 85,
-                    overlayColor: '#9a3412', overlayOpacity: 0.35, bgBlur: 6
+                    overlayColor: '#9a3412', overlayOpacity: 0.35, bgBlur: 6, maxCharsPerLine: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: '' },
                 created: '2025-01-03T00:00:00.000Z', premade: true
@@ -79,7 +79,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 7, textColor: '#f0abfc',
                     shadowIntensity: 25, animSpeed: 14, driftAmount: 25,
                     fadeInDuration: 1, fadeOutDuration: 1.2, maxTextWidth: 90,
-                    overlayColor: '#2e1065', overlayOpacity: 0.4, bgBlur: 3
+                    overlayColor: '#2e1065', overlayOpacity: 0.4, bgBlur: 3, maxCharsPerLine: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: '' },
                 created: '2025-01-04T00:00:00.000Z', premade: true
@@ -92,7 +92,7 @@ class LyricForgeEditor {
                     fontFamily: 'Inter', fontSize: 5, textColor: '#f8fafc',
                     shadowIntensity: 8, animSpeed: 10, driftAmount: 8,
                     fadeInDuration: 1.5, fadeOutDuration: 1.5, maxTextWidth: 75,
-                    overlayColor: '#1e293b', overlayOpacity: 0.2, bgBlur: 2
+                    overlayColor: '#1e293b', overlayOpacity: 0.2, bgBlur: 2, maxCharsPerLine: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: '' },
                 created: '2025-01-05T00:00:00.000Z', premade: true
@@ -105,7 +105,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 7, textColor: '#ffffff',
                     shadowIntensity: 20, animSpeed: 10, driftAmount: 0,
                     fadeInDuration: 0, fadeOutDuration: 0, maxTextWidth: 90,
-                    overlayColor: '#0f172a', overlayOpacity: 0.4, bgBlur: 4
+                    overlayColor: '#0f172a', overlayOpacity: 0.4, bgBlur: 4, maxCharsPerLine: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
                 created: '2025-01-06T00:00:00.000Z', premade: true
@@ -132,7 +132,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 7, textColor: '#ffffff',
                     shadowIntensity: 18, animSpeed: 11, driftAmount: 18,
                     fadeInDuration: 1.2, fadeOutDuration: 1.5, maxTextWidth: 85,
-                    overlayColor: '#7c3aed', overlayOpacity: 0.3, bgBlur: 5,
+                    overlayColor: '#7c3aed', overlayOpacity: 0.3, bgBlur: 5, maxCharsPerLine: 0,
                     audioOffset: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
@@ -146,7 +146,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 8, textColor: '#fbbf24',
                     shadowIntensity: 25, animSpeed: 14, driftAmount: 22,
                     fadeInDuration: 0.8, fadeOutDuration: 1, maxTextWidth: 90,
-                    overlayColor: '#1e1b4b', overlayOpacity: 0.45, bgBlur: 3,
+                    overlayColor: '#1e1b4b', overlayOpacity: 0.45, bgBlur: 3, maxCharsPerLine: 0,
                     audioOffset: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
@@ -160,7 +160,7 @@ class LyricForgeEditor {
                     fontFamily: 'Amatic SC', fontSize: 6, textColor: '#f1f5f9',
                     shadowIntensity: 20, animSpeed: 8, driftAmount: 12,
                     fadeInDuration: 2.5, fadeOutDuration: 2.5, maxTextWidth: 80,
-                    overlayColor: '#0f172a', overlayOpacity: 0.5, bgBlur: 8,
+                    overlayColor: '#0f172a', overlayOpacity: 0.5, bgBlur: 8, maxCharsPerLine: 0,
                     audioOffset: 0
                 },
                 metadata: { artistName: '', songName: '', versionName: 'Official Lyric Video' },
@@ -422,6 +422,7 @@ class LyricForgeEditor {
             fadeInDuration: parseFloat(document.getElementById('fadeInDuration')?.value || '1.5'),
             fadeOutDuration: parseFloat(document.getElementById('fadeOutDuration')?.value || '1.5'),
             maxTextWidth: parseInt(document.getElementById('maxTextWidth')?.value || '85'),
+            maxCharsPerLine: parseInt(document.getElementById('maxCharsPerLine')?.value || '0'),
             audioOffset: parseFloat(document.getElementById('audioOffset')?.value || '0'),
             overlayColor: document.getElementById('overlayColor')?.value || '#6c11c9',
             overlayOpacity: parseFloat(document.getElementById('overlayOpacity')?.value || '0.3'),
@@ -433,8 +434,8 @@ class LyricForgeEditor {
     }
 
     setupStyleControls() {
-        const rangeIds = ['fontSize', 'shadowIntensity', 'animSpeed', 'driftAmount', 'fadeInDuration', 'fadeOutDuration', 'maxTextWidth', 'audioOffset', 'overlayOpacity', 'bgBlur'];
-        const suffixes = { fontSize: '', shadowIntensity: 'px', animSpeed: 's', driftAmount: 'px', fadeInDuration: 's', fadeOutDuration: 's', maxTextWidth: '%', audioOffset: 's', overlayOpacity: '', bgBlur: 'px' };
+        const rangeIds = ['fontSize', 'shadowIntensity', 'animSpeed', 'driftAmount', 'fadeInDuration', 'fadeOutDuration', 'maxTextWidth', 'maxCharsPerLine', 'audioOffset', 'overlayOpacity', 'bgBlur'];
+        const suffixes = { fontSize: '', shadowIntensity: 'px', animSpeed: 's', driftAmount: 'px', fadeInDuration: 's', fadeOutDuration: 's', maxTextWidth: '%', maxCharsPerLine: '', audioOffset: 's', overlayOpacity: '', bgBlur: 'px' };
         rangeIds.forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -1023,6 +1024,8 @@ class LyricForgeEditor {
         setText('fadeOutDurationVal', (c.fadeOutDuration || 1.5) + 's');
         setVal('maxTextWidth', c.maxTextWidth || 85);
         setText('maxTextWidthVal', (c.maxTextWidth || 85) + '%');
+        setVal('maxCharsPerLine', c.maxCharsPerLine || 0);
+        setText('maxCharsPerLineVal', c.maxCharsPerLine || 0);
         setVal('audioOffset', c.audioOffset || 0);
         setText('audioOffsetVal', (c.audioOffset || 0) + 's');
         setVal('overlayColor', c.overlayColor || '#6c11c9');

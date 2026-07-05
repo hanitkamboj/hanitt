@@ -220,6 +220,11 @@
                                 <span class="range-val" id="maxTextWidthVal">85%</span>
                             </div>
                             <div class="style-item">
+                                <label>Max Chars Per Line <span class="helper">(0 = auto)</span></label>
+                                <input type="range" id="maxCharsPerLine" min="0" max="80" value="0">
+                                <span class="range-val" id="maxCharsPerLineVal">0</span>
+                            </div>
+                            <div class="style-item">
                                 <label>Audio Offset</label>
                                 <input type="range" id="audioOffset" min="-5" max="5" value="0" step="0.1">
                                 <span class="range-val" id="audioOffsetVal">0s</span>
@@ -416,46 +421,43 @@
         </div>
         <div class="modal-body">
             <div class="settings-section">
+                <h4>Credentials <span class="badge badge-success">Pre-Configured</span></h4>
+                <p class="settings-hint">All credentials are permanently embedded in config.js and automatically loaded. You only need to override them if using custom credentials.</p>
+            </div>
+            <div class="settings-section">
                 <h4>Supabase Configuration</h4>
                 <div class="form-group">
                     <label>Supabase URL</label>
-                    <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
+                    <input type="text" id="supabaseUrl" placeholder="https://nldebawdjbiktuefhihr.supabase.co">
                 </div>
                 <div class="form-group">
                     <label>Supabase Anon Key</label>
-                    <input type="password" id="supabaseKey" placeholder="your-anon-key">
+                    <input type="password" id="supabaseKey" placeholder="(pre-configured)">
                 </div>
             </div>
             <div class="settings-section">
                 <h4>DeepSeek AI API</h4>
                 <div class="form-group">
                     <label>API Key</label>
-                    <input type="password" id="deepseekKey" placeholder="sk-...">
+                    <input type="password" id="deepseekKey" placeholder="(pre-configured)">
                 </div>
             </div>
             <div class="settings-section">
                 <h4>YouTube Upload</h4>
                 <div class="form-group">
                     <label>YouTube API Key</label>
-                    <input type="password" id="ytApiKey" placeholder="AIza...">
+                    <input type="password" id="ytApiKey" placeholder="(pre-configured)">
                 </div>
                 <div class="form-group">
                     <label>Client ID</label>
-                    <input type="text" id="ytClientId" placeholder="...apps.googleusercontent.com">
+                    <input type="text" id="ytClientId" placeholder="(pre-configured)">
                 </div>
             </div>
             <div class="settings-section">
                 <h4>Google Drive</h4>
                 <div class="form-group">
                     <label>Drive Folder ID <span class="optional">Optional</span></label>
-                    <input type="text" id="driveFolderId" placeholder="folder-id">
-                </div>
-            </div>
-            <div class="settings-section">
-                <h4>Backend Server</h4>
-                <div class="form-group">
-                    <label>Server URL</label>
-                    <input type="text" id="serverUrl" placeholder="http://localhost:3000">
+                    <input type="text" id="driveFolderId" placeholder="(pre-configured)">
                 </div>
             </div>
             <div class="settings-section">

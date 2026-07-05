@@ -860,6 +860,12 @@ body {
     color: var(--text-muted);
     text-align: right;
 }
+.helper {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+    font-weight: 400;
+}
 
 /* Metadata Form */
 .meta-form {

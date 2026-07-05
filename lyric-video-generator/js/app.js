@@ -50,11 +50,11 @@
             serverUrl: 'serverUrl'
         };
         Object.entries(map).forEach(([key, lsKey]) => {
-            if (cfg[key] && !localStorage.getItem(lsKey)) {
+            if (cfg[key]) {
                 localStorage.setItem(lsKey, cfg[key]);
             }
         });
-        console.log('📋 Auto-loaded config from config.js');
+        console.log('📋 Config loaded from config.js');
     }
 
     function setupModals() {
